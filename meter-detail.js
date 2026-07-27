@@ -37,8 +37,7 @@ async function showPhoto(photoId, meter, reading, onApplied) {
         try {
           const res = await readMeterPhoto({ image: rec.data, type: meter.type, digits: meter.digits });
           if (res && res.legible && res.value) {
-            const int = String(res.value).replace(/^0+(?=\d)/, '');
-            const val = Number(res.decimals ? `${int}.${res.decimals}` : int);
+            const val = Number(String(res.value).replace(/^0+(?=\d)/, ''));
             const same = Math.abs(val - Number(reading.value)) < 0.0005;
             box.innerHTML = `<div class="alert alert--${same ? 'good' : 'warn'}">${icon(same ? 'check' : 'alert', 18)}
                 <span><b>Foto indica ${fmtAuto(val)} ${TYPES[meter.type].unit}</b><br>

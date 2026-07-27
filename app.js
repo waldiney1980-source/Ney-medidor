@@ -111,6 +111,7 @@ async function renderRoute() {
   document.getElementById('page-title').textContent = (out && out.title) || route.title;
   document.getElementById('page-sub').textContent = (out && out.sub) || '';
   document.getElementById('btn-back').hidden = !route.deep;
+  document.getElementById('brand').hidden = !!route.deep;   // não competem pelo mesmo canto
   markActive(route.tab ? route.path : '');
   container.scrollTop = 0;
   window.scrollTo({ top: 0 });
@@ -182,8 +183,41 @@ window.addEventListener('beforeinstallprompt', (e) => {
   deferredInstall = e;
 });
 
-main().catch((e) => {
-  console.error(e);
+/** Última linha de defesa: se o app não abrir, oferece um reinício de verdade. */
+function telaDeFalha(mensagem) {
   const splash = document.getElementById('splash');
-  if (splash) splash.innerHTML = `<p style="max-width:30ch;text-align:center">Falha ao iniciar o aplicativo.<br><small>${esc(e.message || '')}</small></p>`;
-});
+  if (!splash) return;
+  splash.innerHTML = `
+    <div style="max-width:32ch;text-align:center;display:grid;gap:14px;color:var(--ink)">
+      <p style="font-weight:600">Não foi possível abrir o aplicativo.</p>
+      <p style="font-size:13px;color:var(--muted);line-height:1.5">
+        Toque no botão abaixo para reinstalar a versão mais recente. Leituras já
+        enviadas para a nuvem não se perdem.
+      </p>
+      <button id="recuperar" style="height:46px;border:0;border-radius:12px;background:var(--brand);
+        color:#fff;font-size:15px;font-weight:600">Reiniciar o aplicativo</button>
+      <p style="font-size:11px;color:var(--muted);word-break:break-word">${esc(mensagem || '')}</p>
+    </div>`;
+  splash.querySelector('#recuperar').onclick = async () => {
+    try {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((r) => r.unregister()));
+      const chaves = await caches.keys();
+      await Promise.all(chaves.map((k) => caches.delete(k)));
+    } catch { /* segue para o recarregamento de qualquer forma */ }
+    location.replace(location.pathname + '?r=' + Date.now());
+  };
+}
+
+// se a carga travar por mais de 15s, mostra a saída em vez de ficar girando
+const travou = setTimeout(() => {
+  if (document.getElementById('splash')) telaDeFalha('A inicialização demorou demais.');
+}, 15000);
+
+main()
+  .then(() => clearTimeout(travou))
+  .catch((e) => {
+    clearTimeout(travou);
+    console.error(e);
+    telaDeFalha(e && e.message);
+  });

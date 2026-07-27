@@ -68,6 +68,11 @@ export const idb = {
   kvSet(key, value) {
     return tx('kv', 'readwrite', (s) => { s.put({ key, value }); return value; });
   },
+  /** Apaga só os dados de leitura, preservando os ajustes e o acesso à nuvem. */
+  async wipeData() {
+    for (const s of ['sites', 'meters', 'readings', 'photos']) await this.clear(s);
+  },
+  /** Apaga tudo, inclusive ajustes e login. Use apenas em reinício completo. */
   async wipe() {
     for (const s of STORES) await this.clear(s);
   },

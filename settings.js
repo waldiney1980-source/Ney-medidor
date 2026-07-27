@@ -194,14 +194,17 @@ export default async function settings() {
 
     /* --- backup --- */
     const backup = el(`<section class="card">
-      <div class="card__head"><div class="grow"><h2>Backup e dados</h2><p>Arquivo JSON com medidores, leituras e fotos.</p></div></div>
+      <div class="card__head"><div class="grow"><h2>Cópia de segurança</h2><p>Arquivo técnico (.json) para restaurar o app noutro aparelho. <b>Não é o relatório</b> — o relatório em PDF e Excel fica no Histórico.</p></div></div>
       <div class="card__body stack">
         <div class="row" style="gap:8px">
-          <button class="btn grow" id="export">${icon('download', 18)} Exportar</button>
+          <button class="btn grow" id="export">${icon('download', 18)} Salvar cópia (.json)</button>
           <button class="btn grow" id="import">${icon('upload', 18)} Importar</button>
         </div>
         <input type="file" accept="application/json" id="file" hidden>
-        <button class="btn btn--danger btn--block" id="wipe">${icon('trash', 18)} Apagar todos os dados locais</button>
+        <button class="btn btn--danger btn--block" id="wipe">${icon('trash', 18)} Apagar as leituras deste aparelho</button>
+        <span class="hint">Limpa medidores, leituras e fotos guardados aqui. ${s.syncEnabled
+          ? 'Você continua conectado, e o que já foi enviado volta na próxima sincronização.'
+          : 'O acesso à nuvem e os ajustes são mantidos.'}</span>
       </div></section>`);
     backup.querySelector('#export').onclick = async () => {
       const json = await exportBackup();
@@ -223,12 +226,16 @@ export default async function settings() {
     };
     backup.querySelector('#wipe').onclick = async () => {
       const ok = await confirmSheet({
-        title: 'Apagar todos os dados?',
-        message: 'Medidores, leituras e fotos deste aparelho serão removidos. Se a nuvem estiver conectada, os dados voltam na próxima sincronização.',
-        confirmLabel: 'Apagar tudo', danger: true,
+        title: 'Apagar as leituras deste aparelho?',
+        message: state.settings.syncEnabled
+          ? 'Medidores, leituras e fotos guardados neste celular serão removidos. Você continua conectado ao Supabase, e o que já foi enviado é baixado de novo na próxima sincronização.'
+          : 'Medidores, leituras e fotos deste celular serão removidos. Como a nuvem não está conectada, não há cópia — isso não tem volta.',
+        confirmLabel: 'Apagar', danger: true,
       });
       if (!ok) return;
-      await idb.wipe();
+      await idb.wipeData();
+      // zera o marcador para o aparelho baixar tudo de novo da nuvem
+      await saveSettings({ lastSyncAt: 0 });
       location.reload();
     };
     root.appendChild(backup);

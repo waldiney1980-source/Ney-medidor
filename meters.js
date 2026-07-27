@@ -7,6 +7,7 @@ import {
 import { icon, toast, openSheet, confirmSheet, typeColor } from './ui.js';
 import { qrSVG } from './qr.js';
 import { el, esc, fmtAuto, fmtDate, parseNum, uid } from './utils.js';
+import { SEGMENTS, segmentLabel } from './gestao.js';
 
 /* ---------------- formulário de medidor ---------------- */
 
@@ -133,44 +134,131 @@ export function meterFormSheet(existing, onSaved) {
 
 /* ---------------- unidades ---------------- */
 
+/** Ficha da unidade: perfil do negócio, contato do dono e limites do mês. */
+export function siteFormSheet(site, onSaved) {
+  const s = site || { id: uid(), name: '' };
+  const novo = !site;
+  const v = (x) => (x === null || x === undefined ? '' : String(x));
+
+  openSheet({
+    title: novo ? 'Nova unidade' : 'Editar unidade',
+    sub: 'Loja, prédio ou setor. O segmento define as sugestões de economia do relatório.',
+    body: `<div class="stack">
+      <div class="field">
+        <label for="u-name">Nome da unidade</label>
+        <input class="input" id="u-name" value="${esc(s.name || '')}" placeholder="Ex.: Padaria Central">
+      </div>
+      <div class="field">
+        <label for="u-seg">Segmento do negócio</label>
+        <select class="select" id="u-seg">
+          ${Object.entries(SEGMENTS).map(([k, o]) =>
+            `<option value="${k}" ${k === (s.segment || '') ? 'selected' : ''}>${esc(o.label)}</option>`).join('')}
+        </select>
+        <span class="hint">O relatório gerencial traz dicas específicas para esse ramo.</span>
+      </div>
+
+      <div class="divider"></div>
+      <p class="small muted" style="margin:0"><b>Proprietário</b> — para quem o aviso de consumo alto é enviado.</p>
+      <div class="field">
+        <label for="u-own">Nome</label>
+        <input class="input" id="u-own" value="${esc(s.ownerName || '')}" placeholder="Nome do dono">
+      </div>
+      <div class="row" style="gap:8px">
+        <div class="field grow">
+          <label for="u-fone">WhatsApp</label>
+          <input class="input" id="u-fone" inputmode="tel" value="${esc(s.ownerPhone || '')}" placeholder="(11) 98888-7777">
+        </div>
+      </div>
+      <div class="field">
+        <label for="u-mail">E-mail</label>
+        <input class="input" id="u-mail" inputmode="email" value="${esc(s.ownerEmail || '')}" placeholder="dono@email.com">
+      </div>
+
+      <div class="divider"></div>
+      <p class="small muted" style="margin:0"><b>Limite do mês</b> — deixe em branco o que não quiser acompanhar.
+      Ao passar do limite, o app avisa e monta a mensagem pronta.</p>
+      <div class="row" style="gap:8px">
+        <div class="field grow">
+          <label for="u-le">Energia (kWh)</label>
+          <input class="input" id="u-le" inputmode="decimal" value="${esc(v(s.limitEnergia))}" placeholder="—">
+        </div>
+        <div class="field grow">
+          <label for="u-la">Água (m³)</label>
+          <input class="input" id="u-la" inputmode="decimal" value="${esc(v(s.limitAgua))}" placeholder="—">
+        </div>
+      </div>
+      <div class="field">
+        <label for="u-lc">Custo estimado (R$)</label>
+        <input class="input" id="u-lc" inputmode="decimal" value="${esc(v(s.limitCost))}" placeholder="—">
+      </div>
+    </div>`,
+    actions: `${novo ? '' : '<button class="btn btn--danger" data-act="del">Excluir</button>'}
+      <button class="btn" data-close>Cancelar</button>
+      <button class="btn btn--primary" data-act="save">Salvar</button>`,
+    onMount(sheet, close) {
+      const g = (id) => sheet.querySelector(id).value.trim();
+      sheet.querySelector('[data-act="save"]').onclick = async () => {
+        const name = g('#u-name');
+        if (!name) { toast('Dê um nome à unidade.', 'warn'); return; }
+        await saveSite({
+          ...s, name,
+          segment: g('#u-seg'),
+          ownerName: g('#u-own'), ownerPhone: g('#u-fone'), ownerEmail: g('#u-mail'),
+          limitEnergia: g('#u-le'), limitAgua: g('#u-la'), limitCost: g('#u-lc'),
+        });
+        toast('Unidade salva.', 'ok');
+        close();
+        if (onSaved) onSaved();
+      };
+      const del = sheet.querySelector('[data-act="del"]');
+      if (del) del.onclick = async () => {
+        if (!await confirmSheet({
+          title: 'Excluir unidade?',
+          message: `Os medidores de “${s.name}” continuam cadastrados, mas ficam sem unidade.`,
+          danger: true, confirmLabel: 'Excluir',
+        })) return;
+        await deleteSite(s.id);
+        close();
+        if (onSaved) onSaved();
+      };
+    },
+  });
+}
+
 function sitesSheet(onSaved) {
   const paint = (sheet) => {
     const list = sheet.querySelector('#site-list');
     const sites = activeSites();
-    list.innerHTML = sites.length ? sites.map((s) => `
-      <div class="item" style="cursor:default">
+    list.innerHTML = sites.length ? sites.map((s) => {
+      const marcas = [
+        s.segment ? segmentLabel(s.segment) : '',
+        `${activeMeters().filter((m) => m.siteId === s.id).length} medidor(es)`,
+        (s.ownerPhone || s.ownerEmail) ? 'proprietário cadastrado' : 'sem contato do dono',
+        (s.limitEnergia || s.limitAgua || s.limitCost) ? 'com limite' : 'sem limite',
+      ].filter(Boolean).join(' · ');
+      return `<div class="item" data-edit="${s.id}">
         <span class="grow item__main"><span class="item__title">${esc(s.name)}</span>
-        <span class="item__sub">${activeMeters().filter((m) => m.siteId === s.id).length} medidor(es)</span></span>
-        <button class="icon-btn" data-del="${s.id}" aria-label="Remover">${icon('trash', 18)}</button>
-      </div>`).join('') : '<p class="small muted">Nenhuma unidade cadastrada.</p>';
-    list.querySelectorAll('[data-del]').forEach((b) => b.onclick = async () => {
-      await deleteSite(b.dataset.del);
-      paint(sheet);
-      if (onSaved) onSaved();
+        <span class="item__sub">${esc(marcas)}</span></span>
+        ${icon('chev', 18)}
+      </div>`;
+    }).join('') : '<p class="small muted">Nenhuma unidade cadastrada.</p>';
+
+    list.querySelectorAll('[data-edit]').forEach((b) => b.onclick = () => {
+      const alvo = activeSites().find((x) => x.id === b.dataset.edit);
+      siteFormSheet(alvo, () => { paint(sheet); if (onSaved) onSaved(); });
     });
   };
 
   openSheet({
     title: 'Unidades',
-    sub: 'Agrupe medidores por prédio, loja ou setor.',
+    sub: 'Agrupe medidores por prédio, loja ou setor. Toque para editar.',
     body: `<div class="list" id="site-list"></div>
       <div class="divider"></div>
-      <div class="row" style="gap:8px">
-        <input class="input grow" id="site-name" placeholder="Nome da unidade">
-        <button class="btn btn--primary" id="site-add" style="flex:none">${icon('plus', 18)}</button>
-      </div>`,
+      <button class="btn btn--primary btn--block" id="site-add">${icon('plus', 18)} Nova unidade</button>`,
     onMount(sheet) {
       paint(sheet);
-      const add = async () => {
-        const name = sheet.querySelector('#site-name').value.trim();
-        if (!name) return;
-        await saveSite({ id: uid(), name });
-        sheet.querySelector('#site-name').value = '';
-        paint(sheet);
-        if (onSaved) onSaved();
-      };
-      sheet.querySelector('#site-add').onclick = add;
-      sheet.querySelector('#site-name').onkeydown = (e) => { if (e.key === 'Enter') add(); };
+      sheet.querySelector('#site-add').onclick = () =>
+        siteFormSheet(null, () => { paint(sheet); if (onSaved) onSaved(); });
     },
   });
 }

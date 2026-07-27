@@ -5,7 +5,8 @@ import {
   activeSites, meterById, activeMeters, TYPES,
 } from './store.js';
 import { columnChart, barChart } from './charts.js';
-import { chartCard, kpi, icon, openSheet, typeColor, emptyBlock } from './ui.js';
+import { chartCard, kpi, icon, openSheet, toast, typeColor, emptyBlock } from './ui.js';
+import { estouros, linksAviso } from './gestao.js';
 import {
   el, esc, fmtAuto, fmtMoney, fmtMoneyCompact, fmtDate, fmtDateShort, fmtAxisDate, todayISO,
   addDaysISO, addMonthsISO, daysBetween, dateOf, isoOf, monthLabel,
@@ -187,6 +188,60 @@ export default async function dashboard({ navigate }) {
     }));
     kpiCards.push(kpi({ label: 'Medidores a ler', value: String(pend.length), deltaLabel: pend.length ? 'sem leitura no período' : 'todos em dia' }));
     root.appendChild(el(`<div class="kpis">${kpiCards.join('')}</div>`));
+
+    /* --- limites do mês estourados --- */
+    const furos = estouros();
+    if (furos.length) {
+      const cartao = el(`<section class="card card--alert">
+        <div class="card__head">
+          <span class="item__icon" style="background:var(--critical);width:38px;height:38px">${icon('alert', 20)}</span>
+          <div class="grow"><h2>Consumo acima do limite</h2>
+          <p>${furos.length} limite(s) do mês ultrapassado(s).</p></div>
+        </div>
+        <div class="card__body stack" id="furos"></div>
+      </section>`);
+      const box = cartao.querySelector('#furos');
+
+      furos.forEach((e, i) => {
+        const links = linksAviso(e);
+        const rot = e.tipo === 'custo' ? 'Custo estimado' : TYPES[e.tipo].label;
+        const usado = e.tipo === 'custo' ? fmtMoney(e.consumido) : `${fmtAuto(e.consumido)} ${e.unidade}`;
+        const lim = e.tipo === 'custo' ? fmtMoney(e.limite) : `${fmtAuto(e.limite)} ${e.unidade}`;
+        const item = el(`<div class="stack" style="gap:8px">
+          <div class="row">
+            <span class="grow item__main">
+              <span class="item__title">${esc(e.site.name)} · ${esc(rot)}</span>
+              <span class="item__sub">${esc(usado)} de ${esc(lim)} — ${e.pct.toFixed(0)}% acima do limite</span>
+            </span>
+          </div>
+          <div class="row" style="gap:8px;flex-wrap:wrap">
+            ${links.whatsapp ? `<a class="btn btn--sm btn--primary" href="${links.whatsapp}" target="_blank" rel="noopener">Avisar por WhatsApp</a>` : ''}
+            ${links.email ? `<a class="btn btn--sm" href="${links.email}">Avisar por e-mail</a>` : ''}
+            <button class="btn btn--sm" data-ver="${i}">Ver a mensagem</button>
+            ${(!links.whatsapp && !links.email)
+              ? '<span class="hint">Cadastre o WhatsApp ou o e-mail do proprietário na unidade.</span>' : ''}
+          </div>
+        </div>`);
+        item.querySelector('[data-ver]').onclick = () => openSheet({
+          title: 'Mensagem de aviso',
+          sub: 'Nada é enviado sozinho — você confere e envia.',
+          body: `<textarea class="input" id="msg" rows="14" style="font-size:13px">${esc(links.texto)}</textarea>`,
+          actions: `<button class="btn" data-close>Fechar</button>
+            <button class="btn btn--primary" data-act="copy">Copiar</button>`,
+          onMount(sheet) {
+            sheet.querySelector('[data-act="copy"]').onclick = async () => {
+              try {
+                await navigator.clipboard.writeText(sheet.querySelector('#msg').value);
+                toast('Mensagem copiada.', 'ok');
+              } catch { toast('Selecione o texto e copie manualmente.', 'info'); }
+            };
+          },
+        });
+        box.appendChild(item);
+        if (i < furos.length - 1) box.appendChild(el('<div class="divider"></div>'));
+      });
+      root.appendChild(cartao);
+    }
 
     /* --- por tipo: evolução + ranking --- */
     blocks.forEach((b) => {

@@ -17,7 +17,8 @@ export default async function capture({ params, navigate }) {
   let meter = params[0] ? meterById(params[0]) : null;
   let editing = params[1] ? readingsOf(meter ? meter.id : '').find((r) => r.id === params[1]) : null;
 
-  let digits = editing ? String(editing.value).replace('.', ',') : '';
+  // leitura é sempre inteira; um valor legado com fração é arredondado ao editar
+  let digits = editing ? String(Math.round(Number(editing.value) || 0)) : '';
   let readAt = editing ? editing.readAt : todayISO();
   let note = editing ? editing.note || '' : '';
   let photoData = undefined;      // undefined = inalterada, null = remover, string = nova
@@ -40,11 +41,11 @@ export default async function capture({ params, navigate }) {
   let ocr = { status: 'idle' };
   let refreshDisplay = () => {};
 
-  /** Converte o resultado do modelo no texto que vai para o visor. */
-  const ocrDigits = (withDecimals) => {
+  /** Converte o resultado do modelo no texto que vai para o visor.
+   *  A leitura é sempre um número inteiro — qualquer fração é descartada. */
+  const ocrDigits = () => {
     if (!ocr.value) return '';
-    const int = String(ocr.value).replace(/^0+(?=\d)/, '');
-    return withDecimals && ocr.decimals ? `${int},${ocr.decimals}` : int;
+    return String(ocr.value).replace(/^0+(?=\d)/, '');
   };
 
   function paintOcr() {
@@ -69,11 +70,10 @@ export default async function capture({ params, navigate }) {
       const low = conf !== null && conf < 0.6;
       box.innerHTML = `
         <div class="alert alert--${low ? 'warn' : 'good'}" style="margin-top:10px">${icon(low ? 'alert' : 'check', 18)}
-          <span><b>Valor lido na foto: ${esc(ocrDigits(true).replace(',', ','))}</b>${conf !== null ? ` · confiança ${(conf * 100).toFixed(0)}%` : ''}<br>
+          <span><b>Valor lido na foto: ${esc(ocrDigits())}</b>${conf !== null ? ` · confiança ${(conf * 100).toFixed(0)}%` : ''}<br>
           Confira contra a foto antes de registrar — o valor não é preenchido sozinho.</span></div>
         <div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap">
-          <button class="btn btn--sm btn--primary" data-ocr="use">Usar ${esc(ocrDigits(true))}</button>
-          ${ocr.decimals ? `<button class="btn btn--sm" data-ocr="use-int">Só inteiros (${esc(ocrDigits(false))})</button>` : ''}
+          <button class="btn btn--sm btn--primary" data-ocr="use">Usar ${esc(ocrDigits())}</button>
           <button class="btn btn--sm" data-ocr="retry">Ler de novo</button>
         </div>`;
     } else if (ocr.status === 'illegible') {
@@ -102,7 +102,7 @@ export default async function capture({ params, navigate }) {
       if (act === 'retry') runOcr();
       else if (act === 'photo') { const f = root.querySelector('#file'); if (f) f.click(); }
       else {
-        digits = ocrDigits(act === 'use');
+        digits = ocrDigits();
         refreshDisplay();
         toast('Valor preenchido. Confira antes de registrar.', 'ok');
       }
@@ -120,7 +120,7 @@ export default async function capture({ params, navigate }) {
         digits: meter.digits,
       });
       if (res && res.legible && res.value) {
-        ocr = { status: 'ok', value: res.value, decimals: res.decimals || null, confidence: res.confidence, model: res.model };
+        ocr = { status: 'ok', value: res.value, confidence: res.confidence, model: res.model };
       } else {
         ocr = { status: 'illegible' };
       }
@@ -265,7 +265,7 @@ export default async function capture({ params, navigate }) {
         </div>
         <div class="keypad" id="pad">
           ${[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `<button class="key" data-k="${n}">${n}</button>`).join('')}
-          <button class="key key--fn" data-k=",">,</button>
+          <button class="key key--fn" data-k="clear" aria-label="Limpar">C</button>
           <button class="key" data-k="0">0</button>
           <button class="key key--fn" data-k="del" aria-label="Apagar">⌫</button>
         </div>
@@ -339,8 +339,8 @@ export default async function capture({ params, navigate }) {
       if (!b) return;
       const k = b.dataset.k;
       if (k === 'del') digits = digits.slice(0, -1);
-      else if (k === ',') { if (!digits.includes(',')) digits = (digits || '0') + ','; }
-      else if (digits.replace(/[^0-9]/g, '').length < 12) digits += k;
+      else if (k === 'clear') digits = '';
+      else if (digits.length < 12) digits += k;
       if (navigator.vibrate) navigator.vibrate(8);
       paintValue();
     });
@@ -353,7 +353,6 @@ export default async function capture({ params, navigate }) {
       if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
       if (/^[0-9]$/.test(e.key)) { digits += e.key; paintValue(); }
       else if (e.key === 'Backspace') { digits = digits.slice(0, -1); paintValue(); }
-      else if (e.key === ',' || e.key === '.') { if (!digits.includes(',')) { digits = (digits || '0') + ','; paintValue(); } }
     }
     node.querySelector('#date').onchange = (e) => { readAt = e.target.value || todayISO(); paintFeedback(); };
     node.querySelector('#note').oninput = (e) => { note = e.target.value; };
@@ -408,7 +407,7 @@ export default async function capture({ params, navigate }) {
       const rec = { ...base, meterId: meter.id, value, readAt, note, readerName, source: editing ? base.source : 'manual' };
       await saveReading(rec, photoData);
       if (readerName && readerName !== state.settings.readerName) {
-        const { saveSettings } = await import('./store.js');
+        const { saveSettings } = await import('../store.js');
         await saveSettings({ readerName });
       }
       toast(editing ? 'Leitura atualizada.' : 'Leitura registrada.', 'ok');

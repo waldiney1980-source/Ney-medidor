@@ -111,12 +111,24 @@ export async function signOut() {
 const nz = (v) => (v === '' || v === undefined ? null : v);
 const iso = (d) => String(d || '').slice(0, 10) || null;
 
+const nOuNulo = (v) => (v === null || v === undefined || v === '' ? null : Number(v));
+
 const toRowSite = (s) => ({
   id: s.id, nome: s.name || '', observacao: s.note || '',
+  segmento: s.segment || '',
+  prop_nome: s.ownerName || '', prop_fone: s.ownerPhone || '', prop_email: s.ownerEmail || '',
+  limite_energia: nOuNulo(s.limitEnergia),
+  limite_agua: nOuNulo(s.limitAgua),
+  limite_custo: nOuNulo(s.limitCost),
   updated_at: s.updatedAt || 0, deleted: s.deleted || 0,
 });
 const fromRowSite = (r) => ({
   id: r.id, name: r.nome || '', note: r.observacao || '',
+  segment: r.segmento || '',
+  ownerName: r.prop_nome || '', ownerPhone: r.prop_fone || '', ownerEmail: r.prop_email || '',
+  limitEnergia: nOuNulo(r.limite_energia),
+  limitAgua: nOuNulo(r.limite_agua),
+  limitCost: nOuNulo(r.limite_custo),
   updatedAt: Number(r.updated_at) || 0, deleted: r.deleted || 0,
 });
 

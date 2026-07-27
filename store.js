@@ -41,11 +41,67 @@ export function emit(reason = 'data') { listeners.forEach((fn) => fn(reason)); }
 /* carga                                                               */
 /* ------------------------------------------------------------------ */
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Versões antigas do app geravam códigos no formato `id-xxxx`, que o Postgres
+ * recusa. Reescreve esses registros com UUID válido, preservando os vínculos
+ * entre medidor, leitura e foto. Roda uma única vez, na carga.
+ */
+async function migrarIdsAntigos(sites, meters, readings) {
+  const photos = await idb.getAll('photos');
+  const todos = [...sites, ...meters, ...readings, ...photos];
+  if (!todos.some((r) => r && !UUID_RE.test(String(r.id)))) return null;
+
+  const mapa = new Map();
+  const trocar = (id) => {
+    if (!id) return id;
+    const s = String(id);
+    if (UUID_RE.test(s)) return s;
+    if (!mapa.has(s)) mapa.set(s, uid());
+    return mapa.get(s);
+  };
+
+  const novoSite = sites.map((s) => ({ ...s, id: trocar(s.id), dirty: 1 }));
+  const novoMeter = meters.map((m) => ({ ...m, id: trocar(m.id), siteId: m.siteId ? trocar(m.siteId) : '', dirty: 1 }));
+  const novoRead = readings.map((r) => ({
+    ...r, id: trocar(r.id), meterId: trocar(r.meterId),
+    photoId: r.photoId ? trocar(r.photoId) : null, dirty: 1,
+  }));
+  const novoPhoto = photos.map((p) => ({
+    ...p, id: trocar(p.id), readingId: p.readingId ? trocar(p.readingId) : null, dirty: 1,
+  }));
+
+  // limpa as chaves antigas antes de gravar as novas
+  for (const [store, antigos] of [['sites', sites], ['meters', meters], ['readings', readings], ['photos', photos]]) {
+    for (const r of antigos) if (mapa.has(String(r.id))) await idb.del(store, r.id);
+  }
+  await idb.bulkPut('sites', novoSite);
+  await idb.bulkPut('meters', novoMeter);
+  await idb.bulkPut('readings', novoRead);
+  await idb.bulkPut('photos', novoPhoto);
+
+  return { sites: novoSite, meters: novoMeter, readings: novoRead, convertidos: mapa.size };
+}
+
 export async function load() {
   const [sites, meters, readings, settings] = await Promise.all([
     idb.getAll('sites'), idb.getAll('meters'), idb.getAll('readings'),
     idb.kvGet('settings', null),
   ]);
+  const migrado = await migrarIdsAntigos(sites || [], meters || [], readings || []);
+  if (migrado) {
+    console.info(`[HidroLuz] ${migrado.convertidos} registro(s) antigos convertidos para o formato novo.`);
+    state.sites = migrado.sites;
+    state.meters = migrado.meters;
+    state.readings = migrado.readings;
+    state.settings = { ...DEFAULT_SETTINGS, ...(settings || {}),
+      tariff: { ...DEFAULT_SETTINGS.tariff, ...((settings && settings.tariff) || {}) } };
+    state.ready = true;
+    recountPending();
+    emit('load');
+    return;
+  }
   state.sites = sites || [];
   state.meters = meters || [];
   state.readings = readings || [];
@@ -121,8 +177,24 @@ export async function deleteMeter(id) {
   emit('meters');
 }
 
+const numOuNulo = (v) => { const n = Number(String(v).replace(',', '.')); return Number.isFinite(n) && n > 0 ? n : null; };
+
 export async function saveSite(site) {
-  const rec = stamp({ id: site.id || uid(), name: site.name || '', note: site.note || '', deleted: site.deleted || 0 });
+  const rec = stamp({
+    id: site.id || uid(),
+    name: site.name || '',
+    note: site.note || '',
+    // perfil do negócio — alimenta as sugestões de economia do relatório
+    segment: site.segment || '',
+    ownerName: site.ownerName || '',
+    ownerPhone: site.ownerPhone || '',
+    ownerEmail: site.ownerEmail || '',
+    // limites do mês; nulo = sem limite
+    limitEnergia: numOuNulo(site.limitEnergia),
+    limitAgua: numOuNulo(site.limitAgua),
+    limitCost: numOuNulo(site.limitCost),
+    deleted: site.deleted || 0,
+  });
   const i = state.sites.findIndex((s) => s.id === rec.id);
   if (i >= 0) state.sites[i] = rec; else state.sites.push(rec);
   await idb.put('sites', rec);
@@ -476,7 +548,7 @@ export async function exportBackup() {
 export async function importBackup(json, { replace = false } = {}) {
   const data = typeof json === 'string' ? JSON.parse(json) : json;
   if (!data || data.app !== 'hidroluz') throw new Error('Arquivo de backup inválido.');
-  if (replace) await idb.wipe();
+  if (replace) await idb.wipeData();   // preserva ajustes e login
   const dirtyfy = (r) => ({ ...r, dirty: 1 });
   await idb.bulkPut('sites', (data.sites || []).map(dirtyfy));
   await idb.bulkPut('meters', (data.meters || []).map(dirtyfy));

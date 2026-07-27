@@ -1,7 +1,7 @@
 // Service worker — casca do app em cache para uso offline.
 // A API nunca é cacheada: dados vêm do IndexedDB local e sincronizam quando há rede.
 
-const VERSION = 'hidroluz-v5';
+const VERSION = 'hidroluz-v8';
 const SHELL = [
   './',
   './index.html',
@@ -17,15 +17,15 @@ const SHELL = [
   './supabase.js',
   './ui.js',
   './utils.js',
-  './pdf.js',
-  './xlsx.js',
-  './report.js',
-  './dashboard.js',
-  './capture.js',
-  './meters.js',
-  './meter-detail.js',
-  './history.js',
-  './settings.js',
+  './export/pdf.js',
+  './export/xlsx.js',
+  './export/report.js',
+  './views/dashboard.js',
+  './views/capture.js',
+  './views/meters.js',
+  './views/meter-detail.js',
+  './views/history.js',
+  './views/settings.js',
   './favicon.svg',
   './icon-192.png',
   './icon-512.png',

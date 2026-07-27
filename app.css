@@ -147,6 +147,20 @@ button, input, select, textarea { font: inherit; color: inherit; }
   -webkit-backdrop-filter: saturate(1.4) blur(14px);
   border-bottom: 1px solid var(--border);
 }
+.topbar__brand {
+  display: flex; align-items: center; gap: 9px; flex: none;
+  text-decoration: none; color: inherit; margin-right: 2px;
+}
+.topbar__mark { display: grid; place-items: center; flex: none;
+  border-radius: 9px; overflow: hidden; line-height: 0;
+  box-shadow: 0 1px 3px rgb(0 0 0 / .18); }
+.topbar__word { font-size: 16px; font-weight: 600; letter-spacing: -.02em;
+  color: var(--ink); white-space: nowrap; }
+.topbar__word b { font-weight: 780; color: #2a78d6; }
+/* em telas estreitas fica só o símbolo, para o título da página respirar */
+@media (max-width: 430px) { .topbar__word { display: none; } }
+.topbar__brand[hidden] { display: none; }
+
 .topbar__titles { flex: 1; min-width: 0; }
 .topbar h1 { font-size: 19px; font-weight: 640; letter-spacing: -.015em; line-height: 1.2; }
 .topbar p { font-size: 12.5px; color: var(--muted); margin-top: 2px;
@@ -274,6 +288,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   height: 44px; padding: 0 16px; border-radius: var(--r-md);
   border: 1px solid var(--border); background: var(--surface);
   color: var(--ink); font-size: 14.5px; font-weight: 570; cursor: pointer;
+  text-decoration: none;                 /* o botão também pode ser um link */
   transition: transform .06s ease, background .12s ease;
 }
 .btn:active { transform: scale(.985); }
@@ -596,3 +611,7 @@ textarea.input { height: auto; padding: 11px 13px; min-height: 76px; resize: ver
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
 }
+
+/* cartão de consumo acima do limite */
+.card--alert { border-color: color-mix(in srgb, var(--critical) 45%, var(--border)); }
+.card--alert .card__head h2 { color: var(--critical-text); }
