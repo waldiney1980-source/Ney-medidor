@@ -1,11 +1,11 @@
 // Histórico geral de leituras, com filtros e exportação para CSV.
 
-import { state, meterById, activeSites, consumptionEvents, activeMeters, TYPES } from '../store.js';
-import { icon, toast, openSheet, typeColor } from '../ui.js';
-import { openExportSheet } from '../export/report.js';
+import { state, meterById, activeSites, consumptionEvents, activeMeters, TYPES } from './store.js';
+import { icon, toast, openSheet, typeColor } from './ui.js';
+import { openExportSheet } from './report.js';
 import {
   el, esc, fmtAuto, fmtDate, fmtDateShort, todayISO, addDaysISO, dateOf, isoOf,
-} from '../utils.js';
+} from './utils.js';
 
 const f = {
   from: addDaysISO(todayISO(), -89),

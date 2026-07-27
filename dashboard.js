@@ -3,13 +3,13 @@
 import {
   state, aggregate, previousTotals, pendingMeters, recentReadings,
   activeSites, meterById, activeMeters, TYPES,
-} from '../store.js';
-import { columnChart, barChart } from '../charts.js';
-import { chartCard, kpi, icon, openSheet, typeColor, emptyBlock } from '../ui.js';
+} from './store.js';
+import { columnChart, barChart } from './charts.js';
+import { chartCard, kpi, icon, openSheet, typeColor, emptyBlock } from './ui.js';
 import {
   el, esc, fmtAuto, fmtMoney, fmtMoneyCompact, fmtDate, fmtDateShort, fmtAxisDate, todayISO,
   addDaysISO, addMonthsISO, daysBetween, dateOf, isoOf, monthLabel,
-} from '../utils.js';
+} from './utils.js';
 
 const PERIODS = [
   { key: '7d', label: '7 dias' },

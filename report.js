@@ -3,14 +3,14 @@
 import {
   state, meterById, readingsOf, consumptionEvents, activeMeters,
   siteName, meterTariff, TYPES,
-} from '../store.js';
-import { fetchPhoto } from '../api.js';
+} from './store.js';
+import { fetchPhoto } from './api.js';
 import { PDF, PAGE, PAGE_MARGIN, fit, textWidth } from './pdf.js';
 import { buildXlsx } from './xlsx.js';
-import { icon, toast, openSheet } from '../ui.js';
+import { icon, toast, openSheet } from './ui.js';
 import {
   esc, fmtAuto, fmtDate, fmtMoney, downloadFile, toCSV, todayISO,
-} from '../utils.js';
+} from './utils.js';
 
 const INK = [0.04, 0.04, 0.04];
 const MUTED = [0.54, 0.53, 0.51];

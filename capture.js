@@ -4,13 +4,13 @@
 import {
   state, activeMeters, meterById, meterByCode, lastReading,
   newReading, saveReading, anomalyCheck, TYPES, pendingMeters, readingsOf,
-} from '../store.js';
-import { fetchPhoto, readMeterPhoto } from '../api.js';
-import { icon, toast, typeColor, openSheet } from '../ui.js';
-import { scanCode, scannerSupported } from '../scanner.js';
+} from './store.js';
+import { fetchPhoto, readMeterPhoto } from './api.js';
+import { icon, toast, typeColor, openSheet } from './ui.js';
+import { scanCode, scannerSupported } from './scanner.js';
 import {
   el, esc, fmtAuto, fmtDate, todayISO, parseNum, compressImage, daysBetween,
-} from '../utils.js';
+} from './utils.js';
 
 export default async function capture({ params, navigate }) {
   const root = el('<div class="stack"></div>');
@@ -408,7 +408,7 @@ export default async function capture({ params, navigate }) {
       const rec = { ...base, meterId: meter.id, value, readAt, note, readerName, source: editing ? base.source : 'manual' };
       await saveReading(rec, photoData);
       if (readerName && readerName !== state.settings.readerName) {
-        const { saveSettings } = await import('../store.js');
+        const { saveSettings } = await import('./store.js');
         await saveSettings({ readerName });
       }
       toast(editing ? 'Leitura atualizada.' : 'Leitura registrada.', 'ok');

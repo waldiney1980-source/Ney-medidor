@@ -3,10 +3,10 @@
 import {
   activeMeters, activeSites, lastReading, newMeter,
   saveMeter, deleteMeter, saveSite, deleteSite, TYPES,
-} from '../store.js';
-import { icon, toast, openSheet, confirmSheet, typeColor } from '../ui.js';
-import { qrSVG } from '../qr.js';
-import { el, esc, fmtAuto, fmtDate, parseNum, uid } from '../utils.js';
+} from './store.js';
+import { icon, toast, openSheet, confirmSheet, typeColor } from './ui.js';
+import { qrSVG } from './qr.js';
+import { el, esc, fmtAuto, fmtDate, parseNum, uid } from './utils.js';
 
 /* ---------------- formulário de medidor ---------------- */
 

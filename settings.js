@@ -1,11 +1,11 @@
 // Ajustes: leiturista, tarifas, alertas, nuvem, backup e instalação.
 
-import { state, saveSettings, exportBackup, importBackup, activeMeters } from '../store.js';
-import { idb, storageEstimate } from '../db.js';
-import { connect, disconnect, sync } from '../api.js';
-import { icon, toast, openSheet, confirmSheet } from '../ui.js';
-import { el, esc, downloadFile, relTime, fmt } from '../utils.js';
-import { installPrompt, triggerInstall, applyTheme } from '../app.js';
+import { state, saveSettings, exportBackup, importBackup, activeMeters } from './store.js';
+import { idb, storageEstimate } from './db.js';
+import { connect, disconnect, sync } from './api.js';
+import { icon, toast, openSheet, confirmSheet } from './ui.js';
+import { el, esc, downloadFile, relTime, fmt } from './utils.js';
+import { installPrompt, triggerInstall, applyTheme } from './app.js';
 
 export default async function settings() {
   const root = el('<div class="stack"></div>');

@@ -6,12 +6,12 @@ import { startAutoSync, sync } from './api.js';
 import { icon, toast } from './ui.js';
 import { esc } from './utils.js';
 
-import dashboard from './views/dashboard.js';
-import capture from './views/capture.js';
-import meters from './views/meters.js';
-import meterDetail from './views/meter-detail.js';
-import history from './views/history.js';
-import settings from './views/settings.js';
+import dashboard from './dashboard.js';
+import capture from './capture.js';
+import meters from './meters.js';
+import meterDetail from './meter-detail.js';
+import history from './history.js';
+import settings from './settings.js';
 
 const ROUTES = [
   { path: 'painel', view: dashboard, title: 'Painel', icon: 'home', tab: true },

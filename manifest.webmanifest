@@ -14,9 +14,9 @@
   "dir": "ltr",
   "categories": ["business", "utilities", "productivity"],
   "icons": [
-    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "./icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "./icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "shortcuts": [
     {
@@ -24,14 +24,14 @@
       "short_name": "Ler",
       "description": "Registrar leitura de um medidor",
       "url": "./index.html#/ler",
-      "icons": [{ "src": "./icons/icon-192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "./icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "Painel",
       "short_name": "Painel",
       "description": "Ver o consumo consolidado",
       "url": "./index.html#/painel",
-      "icons": [{ "src": "./icons/icon-192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "./icon-192.png", "sizes": "192x192" }]
     }
   ]
 }

@@ -3,16 +3,16 @@
 import {
   meterById, readingsOf, consumptionEvents, lastReading, siteName,
   deleteReading, saveReading, meterTariff, TYPES,
-} from '../store.js';
-import { fetchPhoto, readMeterPhoto } from '../api.js';
-import { columnChart } from '../charts.js';
-import { chartCard, kpi, icon, toast, openSheet, confirmSheet, typeColor } from '../ui.js';
+} from './store.js';
+import { fetchPhoto, readMeterPhoto } from './api.js';
+import { columnChart } from './charts.js';
+import { chartCard, kpi, icon, toast, openSheet, confirmSheet, typeColor } from './ui.js';
 import { meterFormSheet, printLabels } from './meters.js';
-import { openExportSheet } from '../export/report.js';
+import { openExportSheet } from './report.js';
 import {
   el, esc, fmtAuto, fmtDate, fmtAxisDate, fmtMoney, monthKey, monthLabel,
   todayISO, daysBetween,
-} from '../utils.js';
+} from './utils.js';
 
 /**
  * Mostra a foto e permite rodar o reconhecimento depois — o caso de quem
