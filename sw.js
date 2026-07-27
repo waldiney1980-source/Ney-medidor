@@ -1,0 +1,87 @@
+// Service worker — casca do app em cache para uso offline.
+// A API nunca é cacheada: dados vêm do IndexedDB local e sincronizam quando há rede.
+
+const VERSION = 'hidroluz-v4';
+const SHELL = [
+  './',
+  './index.html',
+  './manifest.webmanifest',
+  './css/app.css',
+  './js/app.js',
+  './js/api.js',
+  './js/charts.js',
+  './js/db.js',
+  './js/qr.js',
+  './js/scanner.js',
+  './js/store.js',
+  './js/supabase.js',
+  './js/ui.js',
+  './js/utils.js',
+  './js/export/pdf.js',
+  './js/export/xlsx.js',
+  './js/export/report.js',
+  './js/views/dashboard.js',
+  './js/views/capture.js',
+  './js/views/meters.js',
+  './js/views/meter-detail.js',
+  './js/views/history.js',
+  './js/views/settings.js',
+  './icons/favicon.svg',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
+];
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(VERSION)
+      .then((cache) => cache.addAll(SHELL).catch(() => cache.addAll(['./', './index.html'])))
+      .then(() => self.skipWaiting())
+  );
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys()
+      .then((keys) => Promise.all(keys.filter((k) => k !== VERSION).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener('fetch', (event) => {
+  const req = event.request;
+  if (req.method !== 'GET') return;
+
+  const url = new URL(req.url);
+  if (url.origin !== location.origin) return;
+  if (url.pathname.startsWith('/api/')) return;   // sempre rede
+
+  // navegação: rede primeiro, casca em cache como reserva
+  if (req.mode === 'navigate') {
+    event.respondWith(
+      fetch(req)
+        .then((res) => {
+          const copy = res.clone();
+          caches.open(VERSION).then((c) => c.put('./index.html', copy));
+          return res;
+        })
+        .catch(() => caches.match('./index.html').then((r) => r || caches.match('./')))
+    );
+    return;
+  }
+
+  // estáticos: cache primeiro, com revalidação em segundo plano
+  event.respondWith(
+    caches.match(req).then((cached) => {
+      const network = fetch(req)
+        .then((res) => {
+          if (res && res.status === 200 && res.type === 'basic') {
+            const copy = res.clone();
+            caches.open(VERSION).then((c) => c.put(req, copy));
+          }
+          return res;
+        })
+        .catch(() => cached);
+      return cached || network;
+    })
+  );
+});
