@@ -196,8 +196,9 @@ export function siteFormSheet(site, onSaved) {
       <div class="field">
         <label for="u-lp">Ou avise pelo aumento (%)</label>
         <input class="input" id="u-lp" inputmode="decimal" value="${esc(v(s.limitPct))}" placeholder="Ex.: 10">
-        <span class="hint">Compara com o mês anterior, sem precisar saber o valor certo.
-        Com <b>10%</b>: se o mês passado deu 100, passar de 110 já dispara o aviso.</span>
+        <span class="hint">Compara cada leitura com a anterior do mesmo medidor, sem você precisar
+        saber o valor certo. Com <b>10%</b>: se o consumo anterior foi 100, passar de 110 já dispara o aviso.
+        Vale a partir da segunda leitura.</span>
       </div>
       ${(!novo && (s.ownerPhone || s.ownerEmail)) ? `
         <div class="divider"></div>

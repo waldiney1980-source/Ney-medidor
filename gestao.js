@@ -304,7 +304,6 @@ const mesAnterior = (mes) => {
 
 export function estouros(mes = monthKey(new Date().toISOString().slice(0, 10))) {
   const porUnidade = consumoDoMes(mes);
-  const anterior = consumoDoMes(mesAnterior(mes));
   const out = [];
 
   for (const site of state.sites.filter((s) => !s.deleted)) {
@@ -327,30 +326,42 @@ export function estouros(mes = monthKey(new Date().toISOString().slice(0, 10))) 
       });
     }
 
-    // limite por percentual: quanto o mês pode subir em relação ao anterior.
-    // Com 10% e 100 no mês passado, o teto é 110 — 111 já dispara.
+    // Limite por percentual: compara UMA LEITURA COM A ANTERIOR, medidor a
+    // medidor. Com 10% e consumo anterior de 100, o teto é 110 — 111 dispara.
+    // É por leitura, e não por mês, para valer já na segunda leitura.
     const aumento = num(site.limitPct);
     if (!aumento) continue;
-    const ant = anterior.get(site.id);
-    if (!ant) continue;
 
-    for (const [tipo, unidade] of [['energia', 'kWh'], ['agua', 'm³']]) {
-      const base = ant[tipo];
-      if (!base) continue;
+    for (const meter of activeMeters().filter((m) => (m.siteId || '') === site.id)) {
+      const eventos = consumptionEvents(meter.id).filter((e) => e.consumption !== null);
+      if (eventos.length < 2) continue;
+
+      const ultimo = eventos[eventos.length - 1];
+      const penultimo = eventos[eventos.length - 2];
+      const base = penultimo.consumption;
+      if (!(base > 0)) continue;
+
       const teto = base * (1 + aumento / 100);
-      if (u[tipo] <= teto) continue;
+      if (ultimo.consumption <= teto) continue;
+
       out.push({
-        site, tipo, unidade,
-        consumido: u[tipo],
+        site, meter,
+        tipo: meter.type,
+        unidade: TYPES[meter.type].unit,
+        consumido: ultimo.consumption,
         limite: teto,
-        excesso: u[tipo] - teto,
-        pct: ((u[tipo] - teto) / teto) * 100,
+        excesso: ultimo.consumption - teto,
+        pct: ((ultimo.consumption - teto) / teto) * 100,
         // dados que só o alarme por percentual tem
         porPercentual: true,
         aumentoAceito: aumento,
         base,
-        subiu: ((u[tipo] - base) / base) * 100,
-        detalhe: u, mes,
+        subiu: ((ultimo.consumption - base) / base) * 100,
+        dias: ultimo.days,
+        diasBase: penultimo.days,
+        lidoEm: ultimo.readAt,
+        detalhe: u,
+        mes: monthKey(ultimo.readAt),
       });
     }
   }
@@ -369,8 +380,9 @@ export function mensagemAviso(estouro) {
     ? [
         `Aviso de consumo — ${site.name}`,
         '',
-        `${rotuloTipo(estouro.tipo)} em ${nomeMes} está em ${valor(estouro)}.`,
-        `No mês anterior foram ${fmtAuto(estouro.base)} ${estouro.unidade} — subiu ${estouro.subiu.toFixed(0)}%.`,
+        `${estouro.meter.name || estouro.meter.code} (${rotuloTipo(estouro.tipo)})`,
+        `Leitura de ${fmtDate(estouro.lidoEm)}: ${valor(estouro)} em ${estouro.dias} dia(s).`,
+        `Na leitura anterior foram ${fmtAuto(estouro.base)} ${estouro.unidade} em ${estouro.diasBase} dia(s) — subiu ${estouro.subiu.toFixed(0)}%.`,
         `O aumento combinado é de até ${estouro.aumentoAceito}%, o que daria ${valorLim(estouro)}.`,
         '',
       ]
