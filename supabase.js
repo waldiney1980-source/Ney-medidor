@@ -120,6 +120,7 @@ const toRowSite = (s) => ({
   limite_energia: nOuNulo(s.limitEnergia),
   limite_agua: nOuNulo(s.limitAgua),
   limite_custo: nOuNulo(s.limitCost),
+  limite_pct: nOuNulo(s.limitPct),
   updated_at: s.updatedAt || 0, deleted: s.deleted || 0,
 });
 const fromRowSite = (r) => ({
@@ -129,6 +130,7 @@ const fromRowSite = (r) => ({
   limitEnergia: nOuNulo(r.limite_energia),
   limitAgua: nOuNulo(r.limite_agua),
   limitCost: nOuNulo(r.limite_custo),
+  limitPct: nOuNulo(r.limite_pct),
   updatedAt: Number(r.updated_at) || 0, deleted: r.deleted || 0,
 });
 

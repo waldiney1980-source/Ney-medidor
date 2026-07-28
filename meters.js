@@ -193,6 +193,12 @@ export function siteFormSheet(site, onSaved) {
         <label for="u-lc">Custo estimado (R$)</label>
         <input class="input" id="u-lc" inputmode="decimal" value="${esc(v(s.limitCost))}" placeholder="—">
       </div>
+      <div class="field">
+        <label for="u-lp">Ou avise pelo aumento (%)</label>
+        <input class="input" id="u-lp" inputmode="decimal" value="${esc(v(s.limitPct))}" placeholder="Ex.: 10">
+        <span class="hint">Compara com o mês anterior, sem precisar saber o valor certo.
+        Com <b>10%</b>: se o mês passado deu 100, passar de 110 já dispara o aviso.</span>
+      </div>
       ${(!novo && (s.ownerPhone || s.ownerEmail)) ? `
         <div class="divider"></div>
         <div class="field">
@@ -242,7 +248,7 @@ export function siteFormSheet(site, onSaved) {
           ...s, name,
           segment: g('#u-seg'),
           ownerName: g('#u-own'), ownerPhone: g('#u-fone'), ownerEmail: g('#u-mail'),
-          limitEnergia: g('#u-le'), limitAgua: g('#u-la'), limitCost: g('#u-lc'),
+          limitEnergia: g('#u-le'), limitAgua: g('#u-la'), limitCost: g('#u-lc'), limitPct: g('#u-lp'),
         });
         if (vincular && soltos.length) {
           for (const m of soltos) await saveMeter({ ...m, siteId: s.id });

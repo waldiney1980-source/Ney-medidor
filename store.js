@@ -193,6 +193,8 @@ export async function saveSite(site) {
     limitEnergia: numOuNulo(site.limitEnergia),
     limitAgua: numOuNulo(site.limitAgua),
     limitCost: numOuNulo(site.limitCost),
+    // aumento aceitável em % sobre o mês anterior
+    limitPct: numOuNulo(site.limitPct),
     deleted: site.deleted || 0,
   });
   const i = state.sites.findIndex((s) => s.id === rec.id);
@@ -535,6 +537,35 @@ export async function applyRemote(remote) {
 /* ------------------------------------------------------------------ */
 /* backup                                                              */
 /* ------------------------------------------------------------------ */
+
+/**
+ * Marca tudo como excluído para que a exclusão chegue à nuvem na próxima
+ * sincronização. Sem isso, apagar só no aparelho não adianta: o servidor
+ * devolve os mesmos registros logo em seguida.
+ */
+export async function marcarTudoExcluido() {
+  const agora = nowMs();
+  const marcar = (r) => ({ ...r, deleted: 1, dirty: 1, updatedAt: agora });
+
+  state.sites = state.sites.map(marcar);
+  state.meters = state.meters.map(marcar);
+  state.readings = state.readings.map(marcar);
+  const photos = (await idb.getAll('photos')).map(marcar);
+
+  await idb.bulkPut('sites', state.sites);
+  await idb.bulkPut('meters', state.meters);
+  await idb.bulkPut('readings', state.readings);
+  await idb.bulkPut('photos', photos);
+
+  recountPending();
+  emit('data');
+  return {
+    sites: state.sites.length,
+    meters: state.meters.length,
+    readings: state.readings.length,
+    photos: photos.length,
+  };
+}
 
 export async function exportBackup() {
   const photos = await idb.getAll('photos');

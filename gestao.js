@@ -296,12 +296,22 @@ const num = (v) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n
  * Unidades que passaram do limite configurado no mês.
  * @returns {Array} { site, tipo, consumido, limite, excesso, pct, custo, unidade }
  */
+const mesAnterior = (mes) => {
+  const d = new Date(mes + '-15T12:00:00');
+  d.setMonth(d.getMonth() - 1);
+  return monthKey(d.toISOString().slice(0, 10));
+};
+
 export function estouros(mes = monthKey(new Date().toISOString().slice(0, 10))) {
   const porUnidade = consumoDoMes(mes);
+  const anterior = consumoDoMes(mesAnterior(mes));
   const out = [];
+
   for (const site of state.sites.filter((s) => !s.deleted)) {
     const u = porUnidade.get(site.id);
     if (!u) continue;
+
+    // limites fixos: valor absoluto que não deve ser passado no mês
     const checar = [
       { tipo: 'energia', limite: num(site.limitEnergia), consumido: u.energia, unidade: 'kWh' },
       { tipo: 'agua', limite: num(site.limitAgua), consumido: u.agua, unidade: 'm³' },
@@ -313,8 +323,34 @@ export function estouros(mes = monthKey(new Date().toISOString().slice(0, 10))) 
         site, ...c,
         excesso: c.consumido - c.limite,
         pct: ((c.consumido - c.limite) / c.limite) * 100,
-        detalhe: u,
-        mes,
+        detalhe: u, mes,
+      });
+    }
+
+    // limite por percentual: quanto o mês pode subir em relação ao anterior.
+    // Com 10% e 100 no mês passado, o teto é 110 — 111 já dispara.
+    const aumento = num(site.limitPct);
+    if (!aumento) continue;
+    const ant = anterior.get(site.id);
+    if (!ant) continue;
+
+    for (const [tipo, unidade] of [['energia', 'kWh'], ['agua', 'm³']]) {
+      const base = ant[tipo];
+      if (!base) continue;
+      const teto = base * (1 + aumento / 100);
+      if (u[tipo] <= teto) continue;
+      out.push({
+        site, tipo, unidade,
+        consumido: u[tipo],
+        limite: teto,
+        excesso: u[tipo] - teto,
+        pct: ((u[tipo] - teto) / teto) * 100,
+        // dados que só o alarme por percentual tem
+        porPercentual: true,
+        aumentoAceito: aumento,
+        base,
+        subiu: ((u[tipo] - base) / base) * 100,
+        detalhe: u, mes,
       });
     }
   }
@@ -329,13 +365,22 @@ const valorLim = (e) => (e.tipo === 'custo' ? fmtMoney(e.limite) : `${fmtAuto(e.
 export function mensagemAviso(estouro) {
   const { site } = estouro;
   const nomeMes = new Date(estouro.mes + '-02').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-  const linhas = [
-    `Aviso de consumo — ${site.name}`,
-    '',
-    `${rotuloTipo(estouro.tipo)} em ${nomeMes} já está em ${valor(estouro)}.`,
-    `O limite combinado é ${valorLim(estouro)} — ultrapassou ${estouro.pct.toFixed(0)}%.`,
-    '',
-  ];
+  const linhas = estouro.porPercentual
+    ? [
+        `Aviso de consumo — ${site.name}`,
+        '',
+        `${rotuloTipo(estouro.tipo)} em ${nomeMes} está em ${valor(estouro)}.`,
+        `No mês anterior foram ${fmtAuto(estouro.base)} ${estouro.unidade} — subiu ${estouro.subiu.toFixed(0)}%.`,
+        `O aumento combinado é de até ${estouro.aumentoAceito}%, o que daria ${valorLim(estouro)}.`,
+        '',
+      ]
+    : [
+        `Aviso de consumo — ${site.name}`,
+        '',
+        `${rotuloTipo(estouro.tipo)} em ${nomeMes} já está em ${valor(estouro)}.`,
+        `O limite combinado é ${valorLim(estouro)} — ultrapassou ${estouro.pct.toFixed(0)}%.`,
+        '',
+      ];
 
   const medidores = (estouro.detalhe.medidores || [])
     .filter((m) => estouro.tipo === 'custo' || m.meter.type === estouro.tipo)

@@ -1,6 +1,6 @@
 // Ajustes: leiturista, tarifas, alertas, nuvem, backup e instalação.
 
-import { state, saveSettings, exportBackup, importBackup, activeMeters } from './store.js';
+import { state, saveSettings, exportBackup, importBackup, activeMeters, marcarTudoExcluido } from './store.js';
 import { idb, storageEstimate } from './db.js';
 import { connect, disconnect, sync } from './api.js';
 import { icon, toast, openSheet, confirmSheet } from './ui.js';
@@ -201,10 +201,10 @@ export default async function settings() {
           <button class="btn grow" id="import">${icon('upload', 18)} Importar</button>
         </div>
         <input type="file" accept="application/json" id="file" hidden>
-        <button class="btn btn--danger btn--block" id="wipe">${icon('trash', 18)} Apagar as leituras deste aparelho</button>
-        <span class="hint">Limpa medidores, leituras e fotos guardados aqui. ${s.syncEnabled
-          ? 'Você continua conectado, e o que já foi enviado volta na próxima sincronização.'
-          : 'O acesso à nuvem e os ajustes são mantidos.'}</span>
+        <button class="btn btn--danger btn--block" id="wipe">${icon('trash', 18)} Apagar dados</button>
+        <span class="hint">${s.syncEnabled
+          ? 'Você escolhe: limpar só este celular (os dados voltam da nuvem) ou apagar de vez, aqui e na nuvem. O login e os ajustes são sempre mantidos.'
+          : 'Apaga medidores, leituras e fotos deste celular. O acesso à nuvem e os ajustes são mantidos.'}</span>
       </div></section>`);
     backup.querySelector('#export').onclick = async () => {
       const json = await exportBackup();
@@ -224,19 +224,73 @@ export default async function settings() {
       } catch (e) { toast(e.message || 'Arquivo inválido.', 'error', 4200); }
       file.value = '';
     };
-    backup.querySelector('#wipe').onclick = async () => {
-      const ok = await confirmSheet({
-        title: 'Apagar as leituras deste aparelho?',
-        message: state.settings.syncEnabled
-          ? 'Medidores, leituras e fotos guardados neste celular serão removidos. Você continua conectado ao Supabase, e o que já foi enviado é baixado de novo na próxima sincronização.'
-          : 'Medidores, leituras e fotos deste celular serão removidos. Como a nuvem não está conectada, não há cópia — isso não tem volta.',
-        confirmLabel: 'Apagar', danger: true,
-      });
-      if (!ok) return;
+    /** Limpa só o aparelho — a nuvem devolve tudo na próxima sincronização. */
+    const limparSoAqui = async () => {
       await idb.wipeData();
-      // zera o marcador para o aparelho baixar tudo de novo da nuvem
       await saveSettings({ lastSyncAt: 0 });
       location.reload();
+    };
+
+    /**
+     * Apaga de vez. Marca tudo como excluído e empurra para a nuvem antes de
+     * limpar aqui — do contrário o servidor devolveria os mesmos registros.
+     */
+    const apagarDeVez = async () => {
+      const contas = await marcarTudoExcluido();
+      try {
+        await sync();
+        await idb.wipeData();
+        await saveSettings({ lastSyncAt: Date.now() });
+        location.reload();
+      } catch {
+        // sem sinal: já sumiu da tela e a exclusão sobe quando a conexão voltar
+        toast('Apagado aqui. A exclusão sobe para a nuvem assim que houver sinal — não desinstale o app antes disso.', 'info', 7000);
+        paint();
+      }
+      return contas;
+    };
+
+    backup.querySelector('#wipe').onclick = async () => {
+      const total = activeMeters().length;
+      const leituras = state.readings.filter((r) => !r.deleted).length;
+      const quanto = `${total} medidor(es) e ${leituras} leitura(s)`;
+
+      if (!state.settings.syncEnabled) {
+        const ok = await confirmSheet({
+          title: 'Apagar os dados deste aparelho?',
+          message: `${quanto} serão removidos. Como a nuvem não está conectada, não há cópia — isso não tem volta. Seus ajustes e o acesso são mantidos.`,
+          confirmLabel: 'Apagar', danger: true,
+        });
+        if (ok) await limparSoAqui();
+        return;
+      }
+
+      openSheet({
+        title: 'Apagar dados',
+        sub: `Hoje há ${quanto}.`,
+        body: `<div class="stack">
+          <div class="alert alert--info">${icon('info', 18)}
+            <span>Seu login no Supabase e seus ajustes <b>não</b> são apagados em nenhuma das opções.</span></div>
+          <button class="btn btn--block" data-modo="aqui">Limpar só este celular</button>
+          <span class="hint" style="margin-top:-4px">Libera espaço aqui. Os dados continuam na nuvem e <b>voltam</b> na próxima sincronização.</span>
+          <div class="divider"></div>
+          <button class="btn btn--danger btn--block" data-modo="tudo">${icon('trash', 18)} Apagar de vez, aqui e na nuvem</button>
+          <span class="hint" style="margin-top:-4px">Remove ${esc(quanto)} deste celular <b>e do servidor</b>, e de qualquer outro aparelho conectado. <b>Não tem volta.</b> Salve uma cópia antes, se quiser.</span>
+        </div>`,
+        actions: `<button class="btn" data-close>Cancelar</button>`,
+        onMount(sheet, close) {
+          sheet.querySelector('[data-modo="aqui"]').onclick = async () => { close(); await limparSoAqui(); };
+          sheet.querySelector('[data-modo="tudo"]').onclick = async () => {
+            close();
+            const ok = await confirmSheet({
+              title: 'Apagar de vez?',
+              message: `${quanto} serão removidos deste celular e do servidor. Nenhum aparelho conectado vai mais ter esses dados. Isso não tem volta.`,
+              confirmLabel: 'Apagar de vez', danger: true,
+            });
+            if (ok) await apagarDeVez();
+          };
+        },
+      });
     };
     root.appendChild(backup);
 

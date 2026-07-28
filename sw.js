@@ -1,7 +1,7 @@
 // Service worker — casca do app em cache para uso offline.
 // A API nunca é cacheada: dados vêm do IndexedDB local e sincronizam quando há rede.
 
-const VERSION = 'hidroluz-v10';
+const VERSION = 'hidroluz-v11';
 const SHELL = [
   './',
   './index.html',

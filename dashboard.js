@@ -223,6 +223,10 @@ export default async function dashboard({ navigate }) {
         const resumo = linhas.map((e) => {
           const rot = e.tipo === 'custo' ? 'Custo' : TYPES[e.tipo].label;
           const usado = e.tipo === 'custo' ? fmtMoney(e.consumido) : `${fmtAuto(e.consumido)} ${e.unidade}`;
+          if (e.porPercentual) {
+            return `<li><b>${esc(rot)}</b>: ${esc(usado)} — subiu ${e.subiu.toFixed(0)}%`
+              + ` sobre ${esc(fmtAuto(e.base))} ${esc(e.unidade)} do mês passado (aceito ${e.aumentoAceito}%)</li>`;
+          }
           const lim = e.tipo === 'custo' ? fmtMoney(e.limite) : `${fmtAuto(e.limite)} ${e.unidade}`;
           return `<li><b>${esc(rot)}</b>: ${esc(usado)} · limite ${esc(lim)}</li>`;
         }).join('');
