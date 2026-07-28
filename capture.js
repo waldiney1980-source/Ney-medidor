@@ -6,6 +6,7 @@ import {
   newReading, saveReading, anomalyCheck, TYPES, pendingMeters, readingsOf,
 } from './store.js';
 import { fetchPhoto, readMeterPhoto } from './api.js';
+import { lerLocal } from './ocr-local.js';
 import { icon, toast, typeColor, openSheet } from './ui.js';
 import { scanCode, scannerSupported } from './scanner.js';
 import {
@@ -68,19 +69,28 @@ export default async function capture({ params, navigate }) {
     if (ocr.status === 'ok') {
       const conf = Number.isFinite(ocr.confidence) ? ocr.confidence : null;
       const low = conf !== null && conf < 0.6;
+      const fonte = ocr.origem === 'local'
+        ? (ocr.semServidor ? 'Lido no próprio aparelho, sem internet.' : 'Lido no próprio aparelho.')
+        : 'Lido no servidor.';
       box.innerHTML = `
         <div class="alert alert--${low ? 'warn' : 'good'}" style="margin-top:10px">${icon(low ? 'alert' : 'check', 18)}
           <span><b>Valor lido na foto: ${esc(ocrDigits())}</b>${conf !== null ? ` · confiança ${(conf * 100).toFixed(0)}%` : ''}<br>
-          Confira contra a foto antes de registrar — o valor não é preenchido sozinho.</span></div>
+          ${esc(fonte)} Confira contra a foto antes de registrar — o valor não é preenchido sozinho.</span></div>
+        ${ocr.divergente ? `<div class="alert alert--warn" style="margin-top:8px">${icon('alert', 18)}
+          <span>A leitura feita no aparelho tinha dado <b>${esc(ocr.divergente)}</b>. Olhe a foto e escolha.</span></div>` : ''}
         <div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap">
           <button class="btn btn--sm btn--primary" data-ocr="use">Usar ${esc(ocrDigits())}</button>
+          ${ocr.divergente ? `<button class="btn btn--sm" data-ocr="outro">Usar ${esc(ocr.divergente)}</button>` : ''}
           <button class="btn btn--sm" data-ocr="retry">Ler de novo</button>
         </div>`;
     } else if (ocr.status === 'illegible') {
+      const semRede = !navigator.onLine;
       box.innerHTML = `
         <div class="alert alert--warn" style="margin-top:10px">${icon('alert', 18)}
           <span><b>Não deu para ler os dígitos com segurança.</b><br>
-          Digite o valor no teclado acima, ou tire outra foto mais próxima e sem reflexo.</span></div>
+          ${semRede
+            ? 'Sem internet, o app lê visor digital de números quadrados. Relógio de ponteiro ou de rodinhas só o servidor lê — digite o valor agora, a foto fica guardada.'
+            : 'Digite o valor no teclado acima, ou tire outra foto mais próxima e sem reflexo.'}</span></div>
         <div class="row" style="gap:8px;margin-top:8px">
           <button class="btn btn--sm" data-ocr="retry">Tentar de novo</button>
           <button class="btn btn--sm" data-ocr="photo">Outra foto</button>
@@ -101,6 +111,11 @@ export default async function capture({ params, navigate }) {
       const act = b.dataset.ocr;
       if (act === 'retry') runOcr();
       else if (act === 'photo') { const f = root.querySelector('#file'); if (f) f.click(); }
+      else if (act === 'outro') {
+        digits = String(ocr.divergente).replace(/^0+(?=\d)/, '');
+        refreshDisplay();
+        toast('Valor preenchido. Confira antes de registrar.', 'ok');
+      }
       else {
         digits = ocrDigits();
         refreshDisplay();
@@ -113,6 +128,16 @@ export default async function capture({ params, navigate }) {
     if (!photoPreview || state.settings.ocrEnabled === false) { paintOcr(); return; }
     ocr = { status: 'running' };
     paintOcr();
+
+    // 1) leitura no próprio aparelho — instantânea e funciona sem internet
+    let local = null;
+    try { local = await lerLocal(photoPreview, { digits: meter.digits }); } catch { /* segue sem ela */ }
+    if (local && local.legible) {
+      ocr = { status: 'ok', value: local.value, confidence: local.confidence, origem: 'local' };
+      paintOcr();
+    }
+
+    // 2) o servidor confere, quando houver sinal — ele lê também relógio de rodinhas
     try {
       const res = await readMeterPhoto({
         image: photoPreview,
@@ -120,12 +145,20 @@ export default async function capture({ params, navigate }) {
         digits: meter.digits,
       });
       if (res && res.legible && res.value) {
-        ocr = { status: 'ok', value: res.value, confidence: res.confidence, model: res.model };
-      } else {
+        ocr = {
+          status: 'ok', value: res.value, confidence: res.confidence, model: res.model,
+          origem: 'servidor',
+          divergente: local && local.legible && local.value !== res.value ? local.value : null,
+        };
+      } else if (!(local && local.legible)) {
         ocr = { status: 'illegible' };
       }
     } catch (e) {
-      ocr = { status: 'error', message: e.message || 'Falha no reconhecimento.', code: e.code || (e.status === 503 ? 'no-ai' : 'erro') };
+      if (local && local.legible) {
+        ocr = { ...ocr, semServidor: true };   // a leitura local vale por si
+      } else {
+        ocr = { status: 'error', message: e.message || 'Falha no reconhecimento.', code: e.code || (e.status === 503 ? 'no-ai' : 'erro') };
+      }
     }
     paintOcr();
   }

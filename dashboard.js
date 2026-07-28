@@ -6,7 +6,7 @@ import {
 } from './store.js';
 import { columnChart, barChart } from './charts.js';
 import { chartCard, kpi, icon, openSheet, toast, typeColor, emptyBlock } from './ui.js';
-import { estouros, linksAviso, linksResumo, resumoMensal, sugestoes, segmentLabel } from './gestao.js';
+import { estouros, linksAviso, sugestoes, segmentLabel } from './gestao.js';
 import {
   el, esc, fmtAuto, fmtMoney, fmtMoneyCompact, fmtDate, fmtDateShort, fmtAxisDate, todayISO,
   addDaysISO, addMonthsISO, daysBetween, dateOf, isoOf, monthLabel,
@@ -211,41 +211,44 @@ export default async function dashboard({ navigate }) {
     /* --- limites do mês estourados --- */
     const furos = estouros();
     if (furos.length) {
-      const cartao = el(`<section class="card card--alert">
-        <div class="card__head">
-          <span class="item__icon" style="background:var(--critical);width:38px;height:38px">${icon('alert', 20)}</span>
-          <div class="grow"><h2>Consumo acima do limite</h2>
-          <p>${furos.length} limite(s) do mês ultrapassado(s).</p></div>
-        </div>
-        <div class="card__body stack" id="furos"></div>
-      </section>`);
-      const box = cartao.querySelector('#furos');
+      // agrupa por unidade: um cartão por loja, não um por limite
+      const porUnidade = new Map();
+      for (const e of furos) {
+        if (!porUnidade.has(e.site.id)) porUnidade.set(e.site.id, { site: e.site, linhas: [] });
+        porUnidade.get(e.site.id).linhas.push(e);
+      }
 
-      furos.forEach((e, i) => {
-        const links = linksAviso(e);
-        const rot = e.tipo === 'custo' ? 'Custo estimado' : TYPES[e.tipo].label;
-        const usado = e.tipo === 'custo' ? fmtMoney(e.consumido) : `${fmtAuto(e.consumido)} ${e.unidade}`;
-        const lim = e.tipo === 'custo' ? fmtMoney(e.limite) : `${fmtAuto(e.limite)} ${e.unidade}`;
-        const item = el(`<div class="stack" style="gap:8px">
-          <div class="row">
-            <span class="grow item__main">
-              <span class="item__title">${esc(e.site.name)} · ${esc(rot)}</span>
-              <span class="item__sub">${esc(usado)} de ${esc(lim)} — ${e.pct.toFixed(0)}% acima do limite</span>
-            </span>
+      for (const { site, linhas } of porUnidade.values()) {
+        const links = linksAviso(linhas[0]);
+        const resumo = linhas.map((e) => {
+          const rot = e.tipo === 'custo' ? 'Custo' : TYPES[e.tipo].label;
+          const usado = e.tipo === 'custo' ? fmtMoney(e.consumido) : `${fmtAuto(e.consumido)} ${e.unidade}`;
+          const lim = e.tipo === 'custo' ? fmtMoney(e.limite) : `${fmtAuto(e.limite)} ${e.unidade}`;
+          return `<li><b>${esc(rot)}</b>: ${esc(usado)} · limite ${esc(lim)}</li>`;
+        }).join('');
+
+        const cartao = el(`<section class="card card--alert">
+          <div class="card__body stack" style="gap:10px">
+            <div class="row">
+              <span class="item__icon" style="background:var(--critical);width:34px;height:34px;flex:none">${icon('alert', 18)}</span>
+              <span class="grow item__main">
+                <span class="item__title">${esc(site.name)} acima do limite</span>
+                <span class="item__sub">${linhas.length} limite(s) do mês ultrapassado(s)</span>
+              </span>
+            </div>
+            <ul class="lista-seca">${resumo}</ul>
+            <div class="row" style="gap:8px;flex-wrap:wrap">
+              ${links.whatsapp ? `<a class="btn btn--sm btn--primary" href="${links.whatsapp}" target="_blank" rel="noopener">${icon('info', 15)} Avisar o dono</a>` : ''}
+              ${links.email ? `<a class="btn btn--sm" href="${links.email}">E-mail</a>` : ''}
+              <button class="btn btn--sm" data-ver>Ver a mensagem</button>
+              ${(!links.whatsapp && !links.email)
+                ? '<span class="hint">Cadastre o WhatsApp do proprietário na unidade para avisar.</span>' : ''}
+            </div>
           </div>
-          <div class="row" style="gap:8px;flex-wrap:wrap">
-            ${links.whatsapp ? `<a class="btn btn--sm btn--primary" href="${links.whatsapp}" target="_blank" rel="noopener">Avisar por WhatsApp</a>` : ''}
-            ${links.email ? `<a class="btn btn--sm" href="${links.email}">Avisar por e-mail</a>` : ''}
-            <button class="btn btn--sm" data-ver="${i}">Ver a mensagem</button>
-            ${(!links.whatsapp && !links.email)
-              ? '<span class="hint">Cadastre o WhatsApp ou o e-mail do proprietário na unidade.</span>' : ''}
-          </div>
-        </div>`);
-        item.querySelector('[data-ver]').onclick = () => verMensagem(links.texto);
-        box.appendChild(item);
-        if (i < furos.length - 1) box.appendChild(el('<div class="divider"></div>'));
-      });
-      root.appendChild(cartao);
+        </section>`);
+        cartao.querySelector('[data-ver]').onclick = () => verMensagem(links.texto);
+        root.appendChild(cartao);
+      }
     }
 
     /* --- medidores sem unidade: sem isso não há sugestão nem aviso --- */
@@ -276,48 +279,6 @@ export default async function dashboard({ navigate }) {
         siteFormSheet(soltos.length ? null : semDono[0], paint);
       };
       root.appendChild(aviso);
-    }
-
-    /* --- enviar o resumo do mês ao proprietário --- */
-    const unidadesComDono = activeSites().filter((s) => (s.ownerPhone || s.ownerEmail)
-      && (f.siteId === 'all' || s.id === f.siteId)
-      && activeMeters().some((m) => m.siteId === s.id));
-
-    if (unidadesComDono.length) {
-      const envio = el(`<section class="card">
-        <div class="card__head"><div class="grow">
-          <h2>Avisar o proprietário</h2>
-          <p>Resumo do mês com consumo, limites e sugestões. Você confere antes de enviar.</p>
-        </div></div>
-        <div class="card__body stack" id="envio"></div>
-      </section>`);
-      const cx = envio.querySelector('#envio');
-
-      unidadesComDono.forEach((s, i) => {
-        const links = linksResumo(s);
-        const r = resumoMensal(s);
-        const partes = [
-          r.energia ? `${fmtAuto(r.energia)} kWh` : '',
-          r.agua ? `${fmtAuto(r.agua)} m³` : '',
-          r.custo ? fmtMoney(r.custo) : '',
-        ].filter(Boolean).join(' · ') || 'sem leitura neste mês';
-
-        const item = el(`<div class="stack" style="gap:8px">
-          <span class="item__main">
-            <span class="item__title">${esc(s.name)}${s.ownerName ? ` · ${esc(s.ownerName)}` : ''}</span>
-            <span class="item__sub">Este mês: ${esc(partes)}</span>
-          </span>
-          <div class="row" style="gap:8px;flex-wrap:wrap">
-            ${links.whatsapp ? `<a class="btn btn--sm btn--primary" href="${links.whatsapp}" target="_blank" rel="noopener">WhatsApp</a>` : ''}
-            ${links.email ? `<a class="btn btn--sm" href="${links.email}">E-mail</a>` : ''}
-            <button class="btn btn--sm" data-ver>Ver a mensagem</button>
-          </div>
-        </div>`);
-        item.querySelector('[data-ver]').onclick = () => verMensagem(links.texto);
-        cx.appendChild(item);
-        if (i < unidadesComDono.length - 1) cx.appendChild(el('<div class="divider"></div>'));
-      });
-      root.appendChild(envio);
     }
 
     /* --- sugestões de economia do ramo --- */

@@ -7,7 +7,7 @@ import {
 import { icon, toast, openSheet, confirmSheet, typeColor } from './ui.js';
 import { qrSVG } from './qr.js';
 import { el, esc, fmtAuto, fmtDate, parseNum, uid } from './utils.js';
-import { SEGMENTS, segmentLabel } from './gestao.js';
+import { SEGMENTS, segmentLabel, linksResumo } from './gestao.js';
 
 /* ---------------- formulário de medidor ---------------- */
 
@@ -193,6 +193,16 @@ export function siteFormSheet(site, onSaved) {
         <label for="u-lc">Custo estimado (R$)</label>
         <input class="input" id="u-lc" inputmode="decimal" value="${esc(v(s.limitCost))}" placeholder="—">
       </div>
+      ${(!novo && (s.ownerPhone || s.ownerEmail)) ? `
+        <div class="divider"></div>
+        <div class="field">
+          <label>Enviar o resumo do mês</label>
+          <div class="row" style="gap:8px;flex-wrap:wrap">
+            <button class="btn btn--sm btn--primary" data-envio="whatsapp">WhatsApp</button>
+            <button class="btn btn--sm" data-envio="email">E-mail</button>
+          </div>
+          <span class="hint">Consumo, limites e sugestões do ramo. Abre o aplicativo com o texto pronto — quem envia é você.</span>
+        </div>` : ''}
       ${soltos.length ? `
         <div class="divider"></div>
         <div class="field">
@@ -210,6 +220,14 @@ export function siteFormSheet(site, onSaved) {
       <button class="btn btn--primary" data-act="save">Salvar</button>`,
     onMount(sheet, close) {
       const g = (id) => sheet.querySelector(id).value.trim();
+
+      // envio do resumo: abre o WhatsApp/e-mail com o texto pronto
+      sheet.querySelectorAll('[data-envio]').forEach((b) => b.onclick = () => {
+        const links = linksResumo(s);
+        const alvo = links[b.dataset.envio];
+        if (!alvo) { toast('Falta o contato do proprietário nesta unidade.', 'info'); return; }
+        window.open(alvo, b.dataset.envio === 'whatsapp' ? '_blank' : '_self');
+      });
 
       let vincular = soltos.length > 0;
       sheet.querySelectorAll('[data-vinc]').forEach((b) => b.onclick = () => {

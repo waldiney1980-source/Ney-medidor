@@ -111,12 +111,12 @@ export async function fetchPhoto(photoId) {
 /** Reconhecimento do valor na foto do medidor. Exige nuvem conectada e rede. */
 export async function readMeterPhoto({ image, type, digits }) {
   if (!connected()) {
-    const err = new Error('O reconhecimento pela foto usa o servidor. Entre no Supabase em Ajustes.');
+    const err = new Error('Sem servidor: o app leu apenas com o que roda no aparelho. Para reconhecer relógio de rodinhas, entre no Supabase em Ajustes.');
     err.code = 'offline-config';
     throw err;
   }
   if (!navigator.onLine) {
-    const err = new Error('Sem conexão agora. A foto foi guardada — você pode reconhecer o valor depois, pelo histórico do medidor.');
+    const err = new Error('Sem conexão agora. A foto ficou guardada — dá para reconhecer o valor depois pelo histórico do medidor.');
     err.code = 'offline';
     throw err;
   }
