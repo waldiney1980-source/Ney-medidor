@@ -154,11 +154,6 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .topbar__mark { display: grid; place-items: center; flex: none;
   border-radius: 9px; overflow: hidden; line-height: 0;
   box-shadow: 0 1px 3px rgb(0 0 0 / .18); }
-.topbar__word { font-size: 16px; font-weight: 600; letter-spacing: -.02em;
-  color: var(--ink); white-space: nowrap; }
-.topbar__word b { font-weight: 780; color: #2a78d6; }
-/* em telas estreitas fica só o símbolo, para o título da página respirar */
-@media (max-width: 430px) { .topbar__word { display: none; } }
 .topbar__brand[hidden] { display: none; }
 
 .topbar__titles { flex: 1; min-width: 0; }
@@ -615,3 +610,9 @@ textarea.input { height: auto; padding: 11px 13px; min-height: 76px; resize: ver
 /* cartão de consumo acima do limite */
 .card--alert { border-color: color-mix(in srgb, var(--critical) 45%, var(--border)); }
 .card--alert .card__head h2 { color: var(--critical-text); }
+
+/* sugestões de economia — mostra as 3 primeiras até o usuário expandir */
+.dicas { margin: 0; padding-left: 20px; display: grid; gap: 7px; }
+.dicas li { font-size: 13.5px; line-height: 1.45; color: var(--ink-2, var(--ink)); }
+.dicas li::marker { color: var(--muted); font-size: 12px; }
+[data-aberto="0"] .dicas li:nth-child(n + 4) { display: none; }

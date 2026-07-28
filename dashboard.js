@@ -6,7 +6,7 @@ import {
 } from './store.js';
 import { columnChart, barChart } from './charts.js';
 import { chartCard, kpi, icon, openSheet, toast, typeColor, emptyBlock } from './ui.js';
-import { estouros, linksAviso } from './gestao.js';
+import { estouros, linksAviso, linksResumo, resumoMensal, sugestoes, segmentLabel } from './gestao.js';
 import {
   el, esc, fmtAuto, fmtMoney, fmtMoneyCompact, fmtDate, fmtDateShort, fmtAxisDate, todayISO,
   addDaysISO, addMonthsISO, daysBetween, dateOf, isoOf, monthLabel,
@@ -96,6 +96,25 @@ function openPickSheet({ title, options, currentValue, onPick }) {
       </button>`).join('')}</div>`,
     onMount(sheet, close) {
       sheet.querySelectorAll('[data-v]').forEach((b) => b.onclick = () => { onPick(b.dataset.v); close(); });
+    },
+  });
+}
+
+/** Mostra o texto do aviso para conferência antes do envio. */
+function verMensagem(texto) {
+  openSheet({
+    title: 'Mensagem ao proprietário',
+    sub: 'Nada é enviado sozinho — você confere e envia.',
+    body: `<textarea class="input" id="msg" rows="14" style="font-size:13px">${esc(texto)}</textarea>`,
+    actions: `<button class="btn" data-close>Fechar</button>
+      <button class="btn btn--primary" data-act="copy">Copiar</button>`,
+    onMount(sheet) {
+      sheet.querySelector('[data-act="copy"]').onclick = async () => {
+        try {
+          await navigator.clipboard.writeText(sheet.querySelector('#msg').value);
+          toast('Mensagem copiada.', 'ok');
+        } catch { toast('Selecione o texto e copie manualmente.', 'info'); }
+      };
     },
   });
 }
@@ -222,25 +241,137 @@ export default async function dashboard({ navigate }) {
               ? '<span class="hint">Cadastre o WhatsApp ou o e-mail do proprietário na unidade.</span>' : ''}
           </div>
         </div>`);
-        item.querySelector('[data-ver]').onclick = () => openSheet({
-          title: 'Mensagem de aviso',
-          sub: 'Nada é enviado sozinho — você confere e envia.',
-          body: `<textarea class="input" id="msg" rows="14" style="font-size:13px">${esc(links.texto)}</textarea>`,
-          actions: `<button class="btn" data-close>Fechar</button>
-            <button class="btn btn--primary" data-act="copy">Copiar</button>`,
-          onMount(sheet) {
-            sheet.querySelector('[data-act="copy"]').onclick = async () => {
-              try {
-                await navigator.clipboard.writeText(sheet.querySelector('#msg').value);
-                toast('Mensagem copiada.', 'ok');
-              } catch { toast('Selecione o texto e copie manualmente.', 'info'); }
-            };
-          },
-        });
+        item.querySelector('[data-ver]').onclick = () => verMensagem(links.texto);
         box.appendChild(item);
         if (i < furos.length - 1) box.appendChild(el('<div class="divider"></div>'));
       });
       root.appendChild(cartao);
+    }
+
+    /* --- medidores sem unidade: sem isso não há sugestão nem aviso --- */
+    const soltos = activeMeters().filter((m) => !m.siteId);
+    const semDono = activeSites().filter((s) => !s.ownerPhone && !s.ownerEmail
+      && activeMeters().some((m) => m.siteId === s.id));
+
+    if (soltos.length || semDono.length) {
+      const falta = soltos.length
+        ? `${soltos.length} medidor(es) ainda não estão ligados a uma unidade.`
+        : `A unidade ${semDono.map((s) => `“${s.name}”`).join(', ')} está sem o contato do proprietário.`;
+      const aviso = el(`<section class="card">
+        <div class="card__head">
+          <span class="item__icon" style="background:var(--brand);width:38px;height:38px">${icon('info', 20)}</span>
+          <div class="grow"><h2>Falta cadastrar a unidade</h2><p>${esc(falta)}</p></div>
+        </div>
+        <div class="card__body stack">
+          <span class="hint">A unidade é a loja. É nela que ficam o <b>ramo do negócio</b> (define as sugestões
+          de economia), o <b>WhatsApp do proprietário</b> e os <b>limites do mês</b>. Sem ela, o app não tem
+          para quem avisar nem que dicas mostrar.</span>
+          <button class="btn btn--primary btn--block" id="cad-unidade">
+            ${icon('plus', 18)} ${soltos.length ? 'Cadastrar unidade e incluir os medidores' : 'Completar o cadastro da unidade'}
+          </button>
+        </div>
+      </section>`);
+      aviso.querySelector('#cad-unidade').onclick = async () => {
+        const { siteFormSheet } = await import('./meters.js');
+        siteFormSheet(soltos.length ? null : semDono[0], paint);
+      };
+      root.appendChild(aviso);
+    }
+
+    /* --- enviar o resumo do mês ao proprietário --- */
+    const unidadesComDono = activeSites().filter((s) => (s.ownerPhone || s.ownerEmail)
+      && (f.siteId === 'all' || s.id === f.siteId)
+      && activeMeters().some((m) => m.siteId === s.id));
+
+    if (unidadesComDono.length) {
+      const envio = el(`<section class="card">
+        <div class="card__head"><div class="grow">
+          <h2>Avisar o proprietário</h2>
+          <p>Resumo do mês com consumo, limites e sugestões. Você confere antes de enviar.</p>
+        </div></div>
+        <div class="card__body stack" id="envio"></div>
+      </section>`);
+      const cx = envio.querySelector('#envio');
+
+      unidadesComDono.forEach((s, i) => {
+        const links = linksResumo(s);
+        const r = resumoMensal(s);
+        const partes = [
+          r.energia ? `${fmtAuto(r.energia)} kWh` : '',
+          r.agua ? `${fmtAuto(r.agua)} m³` : '',
+          r.custo ? fmtMoney(r.custo) : '',
+        ].filter(Boolean).join(' · ') || 'sem leitura neste mês';
+
+        const item = el(`<div class="stack" style="gap:8px">
+          <span class="item__main">
+            <span class="item__title">${esc(s.name)}${s.ownerName ? ` · ${esc(s.ownerName)}` : ''}</span>
+            <span class="item__sub">Este mês: ${esc(partes)}</span>
+          </span>
+          <div class="row" style="gap:8px;flex-wrap:wrap">
+            ${links.whatsapp ? `<a class="btn btn--sm btn--primary" href="${links.whatsapp}" target="_blank" rel="noopener">WhatsApp</a>` : ''}
+            ${links.email ? `<a class="btn btn--sm" href="${links.email}">E-mail</a>` : ''}
+            <button class="btn btn--sm" data-ver>Ver a mensagem</button>
+          </div>
+        </div>`);
+        item.querySelector('[data-ver]').onclick = () => verMensagem(links.texto);
+        cx.appendChild(item);
+        if (i < unidadesComDono.length - 1) cx.appendChild(el('<div class="divider"></div>'));
+      });
+      root.appendChild(envio);
+    }
+
+    /* --- sugestões de economia do ramo --- */
+    const segmentosNaTela = [...new Set(activeSites()
+      .filter((s) => (f.siteId === 'all' || s.id === f.siteId)
+        && activeMeters().some((m) => m.siteId === s.id))
+      .map((s) => s.segment || ''))];
+    const tiposNaTela = blocks.filter((b) => b.metersCount).map((b) => b.type);
+
+    if (tiposNaTela.length) {
+      const acc = { energia: [], agua: [] };
+      for (const seg of (segmentosNaTela.length ? segmentosNaTela : [''])) {
+        const d = sugestoes(seg, tiposNaTela);
+        acc.energia.push(...d.energia);
+        acc.agua.push(...d.agua);
+      }
+      acc.energia = [...new Set(acc.energia)];
+      acc.agua = [...new Set(acc.agua)];
+
+      const nomeSeg = segmentosNaTela.length === 1 && segmentosNaTela[0]
+        ? segmentLabel(segmentosNaTela[0]) : '';
+      const bloco = (arr, tipo, rotulo) => arr.length ? `
+        <div class="stack" style="gap:7px">
+          <div class="section-title" style="margin:0">
+            <span class="dot" style="background:${typeColor(tipo)}"></span>${rotulo}
+          </div>
+          <ol class="dicas">${arr.map((d) => `<li>${esc(d)}</li>`).join('')}</ol>
+        </div>` : '';
+
+      const card = el(`<section class="card">
+        <div class="card__head"><div class="grow">
+          <h2>Como reduzir o consumo</h2>
+          <p>${nomeSeg ? `Recomendações para ${esc(nomeSeg.toLowerCase())}.` : 'Recomendações práticas.'}
+          Também saem no relatório gerencial.</p>
+        </div></div>
+        <div class="card__body stack" id="dicas-corpo" data-aberto="0">
+          ${bloco(acc.energia, 'energia', 'Energia')}
+          ${bloco(acc.agua, 'agua', 'Água')}
+        </div>
+        <div class="card__body" style="padding-top:0">
+          <button class="btn btn--block btn--sm" id="mais">Ver todas as sugestões</button>
+        </div>
+      </section>`);
+
+      const corpo = card.querySelector('#dicas-corpo');
+      const botao = card.querySelector('#mais');
+      const total = acc.energia.length + acc.agua.length;
+      if (total <= 3) botao.remove();
+      else botao.onclick = () => {
+        const aberto = corpo.dataset.aberto === '1';
+        corpo.dataset.aberto = aberto ? '0' : '1';
+        botao.textContent = aberto ? 'Ver todas as sugestões' : 'Mostrar menos';
+      };
+      root.appendChild(card);
     }
 
     /* --- por tipo: evolução + ranking --- */

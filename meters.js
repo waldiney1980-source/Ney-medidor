@@ -139,6 +139,8 @@ export function siteFormSheet(site, onSaved) {
   const s = site || { id: uid(), name: '' };
   const novo = !site;
   const v = (x) => (x === null || x === undefined ? '' : String(x));
+  // medidores órfãos: sem eles vinculados, a unidade não gera sugestão nem aviso
+  const soltos = activeMeters().filter((m) => !m.siteId);
 
   openSheet({
     title: novo ? 'Nova unidade' : 'Editar unidade',
@@ -191,12 +193,30 @@ export function siteFormSheet(site, onSaved) {
         <label for="u-lc">Custo estimado (R$)</label>
         <input class="input" id="u-lc" inputmode="decimal" value="${esc(v(s.limitCost))}" placeholder="—">
       </div>
+      ${soltos.length ? `
+        <div class="divider"></div>
+        <div class="field">
+          <label>Medidores sem unidade (${soltos.length})</label>
+          <div class="filters" style="padding-bottom:0">
+            <button class="chip" data-vinc="1" data-active="true">Incluir nesta unidade</button>
+            <button class="chip" data-vinc="0">Deixar como estão</button>
+          </div>
+          <span class="hint">${esc(soltos.slice(0, 4).map((m) => m.name || m.code).join(', '))}${soltos.length > 4 ? ` e mais ${soltos.length - 4}` : ''}.
+          Sem unidade, eles não entram nas sugestões nem no aviso ao proprietário.</span>
+        </div>` : ''}
     </div>`,
     actions: `${novo ? '' : '<button class="btn btn--danger" data-act="del">Excluir</button>'}
       <button class="btn" data-close>Cancelar</button>
       <button class="btn btn--primary" data-act="save">Salvar</button>`,
     onMount(sheet, close) {
       const g = (id) => sheet.querySelector(id).value.trim();
+
+      let vincular = soltos.length > 0;
+      sheet.querySelectorAll('[data-vinc]').forEach((b) => b.onclick = () => {
+        vincular = b.dataset.vinc === '1';
+        sheet.querySelectorAll('[data-vinc]').forEach((x) => x.dataset.active = String(x === b));
+      });
+
       sheet.querySelector('[data-act="save"]').onclick = async () => {
         const name = g('#u-name');
         if (!name) { toast('Dê um nome à unidade.', 'warn'); return; }
@@ -206,7 +226,12 @@ export function siteFormSheet(site, onSaved) {
           ownerName: g('#u-own'), ownerPhone: g('#u-fone'), ownerEmail: g('#u-mail'),
           limitEnergia: g('#u-le'), limitAgua: g('#u-la'), limitCost: g('#u-lc'),
         });
-        toast('Unidade salva.', 'ok');
+        if (vincular && soltos.length) {
+          for (const m of soltos) await saveMeter({ ...m, siteId: s.id });
+        }
+        toast(vincular && soltos.length
+          ? `Unidade salva com ${soltos.length} medidor(es).`
+          : 'Unidade salva.', 'ok');
         close();
         if (onSaved) onSaved();
       };

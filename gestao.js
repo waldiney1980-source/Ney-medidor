@@ -362,6 +362,90 @@ export function mensagemAviso(estouro) {
   return linhas.join('\n');
 }
 
+/* ---------------- resumo do mês (sem depender de estouro) ---------------- */
+
+/** Números do mês para uma unidade, com o mês anterior para comparação. */
+export function resumoMensal(site, mes = monthKey(new Date().toISOString().slice(0, 10))) {
+  const anterior = (() => {
+    const d = new Date(mes + '-15T12:00:00');
+    d.setMonth(d.getMonth() - 1);
+    return monthKey(d.toISOString().slice(0, 10));
+  })();
+
+  const doMes = consumoDoMes(mes).get(site.id) || { energia: 0, agua: 0, custo: 0, medidores: [] };
+  const doAnterior = consumoDoMes(anterior).get(site.id) || { energia: 0, agua: 0, custo: 0 };
+
+  const variacao = (a, b) => (b > 0 ? ((a - b) / b) * 100 : null);
+  return {
+    site, mes, anterior,
+    energia: doMes.energia, agua: doMes.agua, custo: doMes.custo,
+    medidores: doMes.medidores,
+    varEnergia: variacao(doMes.energia, doAnterior.energia),
+    varAgua: variacao(doMes.agua, doAnterior.agua),
+    varCusto: variacao(doMes.custo, doAnterior.custo),
+    limites: [
+      { rotulo: 'Energia', unidade: 'kWh', usado: doMes.energia, limite: num(site.limitEnergia) },
+      { rotulo: 'Água', unidade: 'm³', usado: doMes.agua, limite: num(site.limitAgua) },
+      { rotulo: 'Custo estimado', unidade: 'R$', usado: doMes.custo, limite: num(site.limitCost) },
+    ].filter((l) => l.limite > 0),
+  };
+}
+
+const pct = (v) => (v === null ? '' : ` (${v >= 0 ? '+' : '-'}${Math.abs(v).toFixed(0)}% vs. mês anterior)`);
+
+/** Resumo do mês em texto, para mandar ao proprietário a qualquer momento. */
+export function mensagemResumo(site, mes) {
+  const r = resumoMensal(site, mes);
+  const nomeMes = new Date(r.mes + '-15T12:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  const linhas = [`Consumo de ${site.name} — ${nomeMes}`, ''];
+
+  if (r.energia) linhas.push(`Energia: ${fmtAuto(r.energia)} kWh${pct(r.varEnergia)}`);
+  if (r.agua) linhas.push(`Água: ${fmtAuto(r.agua)} m³${pct(r.varAgua)}`);
+  if (r.custo) linhas.push(`Custo estimado: ${fmtMoney(r.custo)}${pct(r.varCusto)}`);
+  if (!r.energia && !r.agua) linhas.push('Ainda não há leitura registrada neste mês.');
+  linhas.push('');
+
+  for (const l of r.limites) {
+    const usado = l.rotulo === 'Custo estimado' ? fmtMoney(l.usado) : `${fmtAuto(l.usado)} ${l.unidade}`;
+    const lim = l.rotulo === 'Custo estimado' ? fmtMoney(l.limite) : `${fmtAuto(l.limite)} ${l.unidade}`;
+    const p = (l.usado / l.limite) * 100;
+    linhas.push(`${l.rotulo}: ${usado} de ${lim} (${p.toFixed(0)}% do limite)${p >= 100 ? ' — LIMITE ULTRAPASSADO' : ''}`);
+  }
+  if (r.limites.length) linhas.push('');
+
+  const top = [...r.medidores].sort((a, b) => b.total - a.total).slice(0, 3);
+  if (top.length) {
+    linhas.push('Maiores consumos:');
+    top.forEach((m) => linhas.push(`• ${m.meter.name || m.meter.code}: ${fmtAuto(m.total)} ${TYPES[m.meter.type].unit}`));
+    linhas.push('');
+  }
+
+  const tipos = [r.energia > 0 && 'energia', r.agua > 0 && 'agua'].filter(Boolean);
+  const d = sugestoes(site.segment, tipos.length ? tipos : ['energia', 'agua']);
+  const primeiras = [...d.energia.slice(0, 2), ...d.agua.slice(0, 2)];
+  if (primeiras.length) {
+    linhas.push('Sugestões para reduzir:');
+    primeiras.forEach((x) => linhas.push(`• ${x}`));
+    linhas.push('');
+  }
+
+  linhas.push(`Enviado por ${state.settings.readerName || 'HidroLuz'} em ${fmtDate(new Date().toISOString().slice(0, 10))}.`);
+  return linhas.join('\n');
+}
+
+/** Links de envio do resumo do mês — disponíveis mesmo sem estouro de limite. */
+export function linksResumo(site, mes) {
+  const texto = mensagemResumo(site, mes);
+  const zap = normalizaWhats(site.ownerPhone);
+  return {
+    texto,
+    whatsapp: zap ? `https://wa.me/${zap}?text=${encodeURIComponent(texto)}` : '',
+    email: site.ownerEmail
+      ? `mailto:${encodeURIComponent(site.ownerEmail)}?subject=${encodeURIComponent(`Consumo de ${site.name}`)}&body=${encodeURIComponent(texto)}`
+      : '',
+  };
+}
+
 /** Só dígitos, com 55 na frente quando o número vier sem código do país. */
 export function normalizaWhats(tel) {
   let d = String(tel || '').replace(/\D/g, '');
