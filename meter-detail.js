@@ -3,6 +3,7 @@
 import {
   meterById, readingsOf, consumptionEvents, lastReading, siteName,
   deleteReading, saveReading, meterTariff, TYPES,
+  dailyConsumption, weekdayAverage, averageForRange,
 } from './store.js';
 import { fetchPhoto, readMeterPhoto } from './api.js';
 import { columnChart } from './charts.js';
@@ -11,7 +12,7 @@ import { meterFormSheet, printLabels } from './meters.js';
 import { openExportSheet } from './report.js';
 import {
   el, esc, fmtAuto, fmtDate, fmtAxisDate, fmtMoney, monthKey, monthLabel,
-  todayISO, daysBetween,
+  todayISO, daysBetween, dateOf, isoOf,
 } from './utils.js';
 
 /**
@@ -142,18 +143,34 @@ export default async function meterDetail({ params, navigate }) {
     </div>`));
 
     /* --- gráficos --- */
+    // média por dia da semana deste medidor, sobre todo o histórico
+    const medias = weekdayAverage(dailyConsumption([meter]));
+
     if (valid.length) {
       const perReading = valid.slice(-24).map((e) => ({
-        key: e.readAt, label: fmtAxisDate(e.readAt), full: `${fmtDate(e.fromAt)} → ${fmtDate(e.readAt)}`, value: e.consumption,
+        key: e.readAt, label: fmtAxisDate(e.readAt), full: `${fmtDate(e.fromAt)} → ${fmtDate(e.readAt)}`,
+        value: e.consumption,
+        // média esperada para os mesmos dias da semana cobertos pelo período
+        average: averageForRange(medias, e.fromAt, e.readAt),
       }));
+      const temMedia = perReading.some((p) => Number.isFinite(p.average));
       root.appendChild(chartCard({
         title: 'Consumo por leitura',
         subtitle: factor !== 1
           ? `Diferença entre leituras × fator ${fmtAuto(factor)} · ${unit}`
           : `Diferença entre leituras consecutivas · ${unit}`,
         unit,
-        rows: perReading.map((p) => ({ label: p.full, value: `${fmtAuto(p.value)} ${unit}` })),
-        render: (wrap) => columnChart(wrap, { data: perReading, unit, color, height: 190 }),
+        extraCol: temMedia ? `Média (${unit})` : '',
+        legendColor: color,
+        rows: perReading.map((p) => ({
+          label: p.full,
+          value: `${fmtAuto(p.value)} ${unit}`,
+          extra: Number.isFinite(p.average) ? `${fmtAuto(p.average)} ${unit}` : '—',
+        })),
+        render: (wrap) => columnChart(wrap, {
+          data: perReading, unit, color, height: 190,
+          averageLabel: 'média esperada do período',
+        }),
       }));
 
       const byMonth = new Map();
@@ -161,15 +178,27 @@ export default async function meterDetail({ params, navigate }) {
         const k = monthKey(e.readAt);
         byMonth.set(k, (byMonth.get(k) || 0) + e.consumption);
       });
+      const fimDoMes = (k) => { const d = dateOf(`${k}-01`); d.setMonth(d.getMonth() + 1); d.setDate(0); return isoOf(d); };
       const months = [...byMonth.entries()].sort((a, b) => a[0].localeCompare(b[0])).slice(-12)
-        .map(([k, v]) => ({ key: k, label: monthLabel(k), full: monthLabel(k), value: v }));
+        .map(([k, v]) => ({
+          key: k, label: monthLabel(k), full: monthLabel(k), value: v,
+          average: averageForRange(medias, `${k}-01`, fimDoMes(k)),
+        }));
       if (months.length > 1) {
         root.appendChild(chartCard({
           title: 'Consumo mensal',
           subtitle: `Últimos ${months.length} meses · ${unit}`,
           unit,
-          rows: months.map((m) => ({ label: m.label, value: `${fmtAuto(m.value)} ${unit}` })),
-          render: (wrap) => columnChart(wrap, { data: months, unit, color, height: 190 }),
+          extraCol: months.some((m) => Number.isFinite(m.average)) ? `Média (${unit})` : '',
+          legendColor: color,
+          rows: months.map((m) => ({
+            label: m.label,
+            value: `${fmtAuto(m.value)} ${unit}`,
+            extra: Number.isFinite(m.average) ? `${fmtAuto(m.average)} ${unit}` : '—',
+          })),
+          render: (wrap) => columnChart(wrap, {
+            data: months, unit, color, height: 190, averageLabel: 'média do mês',
+          }),
         }));
       }
     }

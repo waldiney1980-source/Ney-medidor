@@ -80,14 +80,23 @@ function autoResize(container, draw) {
 /* ---------------- colunas (evolução no tempo) ---------------- */
 
 export function columnChart(container, opts) {
-  const { data = [], unit = '', color = 'var(--s1)', height = 190, emptyMsg = 'Sem consumo no período.' } = opts;
+  const {
+    data = [], unit = '', color = 'var(--s1)', height = 190,
+    emptyMsg = 'Sem consumo no período.',
+    // `average` em cada ponto vira a linha de média; rótulo usado na dica
+    averageLabel = 'média',
+  } = opts;
   const draw = () => {
     const W = Math.max(240, container.clientWidth || 320);
     if (!data.length || data.every((d) => !d.value)) return emptyState(container, emptyMsg);
 
     const plotW = W - PAD.left - PAD.right;
     const plotH = height - PAD.top - PAD.bottom;
-    const max = Math.max(...data.map((d) => d.value));
+    const comMedia = data.some((d) => Number.isFinite(d.average));
+    const max = Math.max(
+      ...data.map((d) => d.value),
+      ...(comMedia ? data.map((d) => Number(d.average) || 0) : []),
+    );
     const sc = scaleFor(max);
     const band = plotW / data.length;
     const barW = Math.max(3, Math.min(24, band - 6));
@@ -116,12 +125,32 @@ export function columnChart(container, opts) {
       return `<path d="${roundedTop(x, y, barW, PAD.top + plotH - y, 4)}" fill="${color}"/>`;
     }).join('');
 
+    // linha da média: tracejada, por cima das barras, com marcas nos pontos
+    let mediaSvg = '';
+    if (comMedia) {
+      const pontos = data
+        .map((d, i) => (Number.isFinite(d.average)
+          ? { x: PAD.left + band * i + band / 2, y: yOf(d.average) } : null))
+        .filter(Boolean);
+      if (pontos.length) {
+        const linha = pontos.map((p, i) => `${i ? 'L' : 'M'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+        const marcas = pontos.length <= 40
+          ? pontos.map((p) => `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="2.6"
+              fill="var(--surface)" stroke="var(--ink)" stroke-width="1.6"/>`).join('')
+          : '';
+        mediaSvg = `<path d="${linha}" fill="none" stroke="var(--surface)" stroke-width="4.5"
+            stroke-linecap="round" stroke-linejoin="round" opacity=".85"/>
+          <path d="${linha}" fill="none" stroke="var(--ink)" stroke-width="2"
+            stroke-dasharray="6 4" stroke-linecap="round" stroke-linejoin="round"/>${marcas}`;
+      }
+    }
+
     const hits = data.map((d, i) =>
       `<rect x="${(PAD.left + band * i).toFixed(2)}" y="${PAD.top}" width="${band.toFixed(2)}" height="${plotH}" fill="transparent" data-i="${i}"/>`).join('');
 
     container.innerHTML =
       `<svg viewBox="0 0 ${W} ${height}" width="${W}" height="${height}" role="img" aria-label="Consumo por período">
-        ${grid}${bars}${xLabels}<g class="hit">${hits}</g>
+        ${grid}${bars}${mediaSvg}${xLabels}<g class="hit">${hits}</g>
       </svg>`;
 
     const tip = ensureTip(container);
@@ -131,8 +160,10 @@ export function columnChart(container, opts) {
       if (!t) return hideTip(tip);
       const d = data[Number(t.dataset.i)];
       const x = PAD.left + band * Number(t.dataset.i) + band / 2;
+      const extra = Number.isFinite(d.average)
+        ? `<span>${esc(averageLabel)}: ${esc(fmtAuto(d.average))} ${esc(unit)}</span>` : '';
       showTip(container, tip, x, yOf(d.value || 0),
-        `<b>${esc(fmtAuto(d.value))} ${esc(unit)}</b><span>${esc(d.full || d.label)}</span>`);
+        `<b>${esc(fmtAuto(d.value))} ${esc(unit)}</b><span>${esc(d.full || d.label)}</span>${extra}`);
     });
     svg.addEventListener('pointerleave', () => hideTip(tip));
   };

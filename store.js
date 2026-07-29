@@ -1,7 +1,7 @@
 // Estado do domínio: medidores, leituras, consumo e agregações do painel.
 
 import { idb } from './db.js';
-import { uid, nowMs, todayISO, dateOf, daysBetween, monthKey, monthLabel, fmtDateShort, isoOf } from './utils.js';
+import { uid, nowMs, todayISO, dateOf, daysBetween, monthKey, monthLabel, fmtDateShort, isoOf, addDaysISO } from './utils.js';
 
 export const TYPES = {
   energia: { key: 'energia', label: 'Energia', unit: 'kWh', colorVar: '--energy', digits: 8, icon: 'bolt' },
@@ -322,6 +322,65 @@ export function consumptionEvents(meterId) {
   return out;
 }
 
+/* ------------------------------------------------------------------ */
+/* média de consumo por dia da semana                                   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Consumo espalhado dia a dia. Cada período entre duas leituras distribui o
+ * consumo por igual entre os seus dias — sem isso, o consumo de um mês inteiro
+ * cairia todo no dia em que a leitura foi feita.
+ * @returns {Map<string, number>} data ISO → consumo daquele dia
+ */
+export function dailyConsumption(meters) {
+  const porDia = new Map();
+  for (const m of meters) {
+    for (const ev of consumptionEvents(m.id)) {
+      if (ev.consumption === null || !ev.days) continue;
+      const fatia = ev.consumption / ev.days;
+      // o período é (leitura anterior, leitura atual]: termina no dia da leitura
+      for (let i = 0; i < ev.days; i++) {
+        const iso = addDaysISO(ev.readAt, -(ev.days - 1 - i));
+        porDia.set(iso, (porDia.get(iso) || 0) + fatia);
+      }
+    }
+  }
+  return porDia;
+}
+
+/**
+ * Média de cada dia da semana: soma de todos os sábados dividida pelo número
+ * de sábados, e assim por diante. Com um único dia, ele mesmo é a média.
+ * @returns {Array<number|null>} índice 0 = domingo … 6 = sábado
+ */
+export function weekdayAverage(porDia, from, to) {
+  const soma = new Array(7).fill(0);
+  const quantos = new Array(7).fill(0);
+  for (const [iso, valor] of porDia) {
+    if (from && iso < from) continue;
+    if (to && iso > to) continue;
+    const d = dateOf(iso).getDay();
+    soma[d] += valor;
+    quantos[d] += 1;
+  }
+  return soma.map((s, i) => (quantos[i] ? s / quantos[i] : null));
+}
+
+/** Média esperada para uma data, pelo dia da semana dela. */
+export const averageOfDate = (medias, iso) => medias[dateOf(iso).getDay()];
+
+/** Soma das médias de cada dia do intervalo — a média esperada do período. */
+export function averageForRange(medias, de, ate) {
+  let total = 0, contou = 0;
+  for (let iso = de; iso <= ate; iso = addDaysISO(iso, 1)) {
+    const m = averageOfDate(medias, iso);
+    if (m === null) continue;
+    total += m;
+    contou++;
+  }
+  return contou ? total : null;
+}
+
 export function meterTariff(meter) {
   const t = Number(meter.tariff);
   if (Number.isFinite(t) && t > 0) return t;
@@ -396,7 +455,25 @@ export function aggregate(filters) {
       if (mTotal > 0) byMeter.set(m.id, mTotal);
     }
 
-    const series = keys.map((k) => ({ key: k, label: bucketLabel(k, granularity), value: buckets.get(k) || 0 }));
+    // média por dia da semana, calculada sobre todo o histórico do medidor —
+    // um período curto não teria sábados suficientes para uma média confiável
+    const medias = weekdayAverage(dailyConsumption(typeMeters));
+
+    const mediaDoBalde = (k) => {
+      if (granularity === 'month') {
+        const inicio = `${k}-01`;
+        const d = dateOf(inicio); d.setMonth(d.getMonth() + 1); d.setDate(0);
+        return averageForRange(medias, inicio < from ? from : inicio, isoOf(d) > to ? to : isoOf(d));
+      }
+      return averageOfDate(medias, k);
+    };
+
+    const series = keys.map((k) => ({
+      key: k,
+      label: bucketLabel(k, granularity),
+      value: buckets.get(k) || 0,
+      average: mediaDoBalde(k),
+    }));
     const ranking = [...byMeter.entries()]
       .map(([id, value]) => ({ id, name: (meterById(id) || {}).name || '—', code: (meterById(id) || {}).code || '', value }))
       .sort((a, b) => b.value - a.value);
@@ -407,6 +484,7 @@ export function aggregate(filters) {
       total, cost, readingsCount, unknown,
       metersCount: typeMeters.length,
       series, ranking,
+      weekdayAvg: medias,
     };
   });
 

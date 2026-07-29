@@ -120,7 +120,7 @@ let chartSeq = 0;
 /**
  * Todo gráfico vem com a tabela equivalente: nenhum valor fica preso ao tooltip.
  */
-export function chartCard({ title, subtitle = '', unit = '', rows, render }) {
+export function chartCard({ title, subtitle = '', unit = '', rows, render, extraCol = '', legendColor = '' }) {
   const id = 'ch' + (++chartSeq);
   const node = document.createElement('section');
   node.className = 'card chart-card';
@@ -136,11 +136,15 @@ export function chartCard({ title, subtitle = '', unit = '', rows, render }) {
       </div>
     </div>
     <div class="card__body">
+      ${extraCol ? `<div class="legenda">
+        <span><i class="legenda__barra" style="background:${esc(legendColor || 'var(--s1)')}"></i>Consumo</span>
+        <span><i class="legenda__linha"></i>${esc(extraCol.replace(/\s*\(.*\)$/, ''))}</span>
+      </div>` : ''}
       <div class="chart-wrap" id="${id}"></div>
       <div class="table-scroll" hidden>
         <table class="data-table">
-          <thead><tr><th>Período</th><th>${esc(unit || 'Valor')}</th></tr></thead>
-          <tbody>${(rows || []).map((r) => `<tr><td>${esc(r.label)}</td><td>${esc(r.value)}</td></tr>`).join('') || '<tr><td colspan="2" class="muted">Sem dados</td></tr>'}</tbody>
+          <thead><tr><th>Período</th><th>${esc(unit || 'Valor')}</th>${extraCol ? `<th>${esc(extraCol)}</th>` : ''}</tr></thead>
+          <tbody>${(rows || []).map((r) => `<tr><td>${esc(r.label)}</td><td>${esc(r.value)}</td>${extraCol ? `<td>${esc(r.extra ?? '—')}</td>` : ''}</tr>`).join('') || `<tr><td colspan="${extraCol ? 3 : 2}" class="muted">Sem dados</td></tr>`}</tbody>
         </table>
       </div>
     </div>`;

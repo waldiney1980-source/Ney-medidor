@@ -352,12 +352,27 @@ export default async function dashboard({ navigate }) {
         full: f.granularity === 'month' ? monthLabel(s.key) : fmtDate(s.key),
       }));
 
+      const temMedia = series.some((s) => Number.isFinite(s.average));
+      const explicaMedia = f.granularity === 'month'
+        ? 'A linha é a média esperada do mês, somando a média de cada dia da semana.'
+        : 'A linha é a média daquele dia da semana (todos os sábados somados e divididos pelo número de sábados, e assim por diante).';
+
       root.appendChild(chartCard({
         title: `Consumo de ${b.label.toLowerCase()}`,
-        subtitle: `${f.granularity === 'month' ? 'Por mês' : 'Por dia'} · ${fmtDate(f.from)} a ${fmtDate(f.to)}`,
+        subtitle: `${f.granularity === 'month' ? 'Por mês' : 'Por dia'} · ${fmtDate(f.from)} a ${fmtDate(f.to)}`
+          + (temMedia ? ` · ${explicaMedia}` : ''),
         unit: b.unit,
-        rows: series.filter((s) => s.value > 0).map((s) => ({ label: s.full, value: `${fmtAuto(s.value)} ${b.unit}` })),
-        render: (wrap) => columnChart(wrap, { data: series, unit: b.unit, color, height: 196 }),
+        extraCol: temMedia ? `Média (${b.unit})` : '',
+        legendColor: color,
+        rows: series.filter((s) => s.value > 0 || Number.isFinite(s.average)).map((s) => ({
+          label: s.full,
+          value: `${fmtAuto(s.value)} ${b.unit}`,
+          extra: Number.isFinite(s.average) ? `${fmtAuto(s.average)} ${b.unit}` : '—',
+        })),
+        render: (wrap) => columnChart(wrap, {
+          data: series, unit: b.unit, color, height: 196,
+          averageLabel: f.granularity === 'month' ? 'média do mês' : 'média deste dia da semana',
+        }),
       }));
 
       if (b.ranking.length > 1) {
