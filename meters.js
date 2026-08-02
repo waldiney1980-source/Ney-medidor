@@ -316,24 +316,32 @@ function sitesSheet(onSaved) {
 
 /* ---------------- etiquetas com QR ---------------- */
 
+/**
+ * Endereço do app sem o arquivo final — base para o link da etiqueta.
+ * Ex.: https://…/Ney-medidor/index.html → https://…/Ney-medidor/
+ */
+const baseDoApp = () => location.origin + location.pathname.replace(/[^/]*$/, '');
+
+/** O que o QR da etiqueta carrega: um link que abre o app já no medidor. */
+export const linkDoMedidor = (m) => `${baseDoApp()}#/medidor/${m.id}`;
+
 export function printLabels(meters) {
-  const withCode = meters.filter((m) => m.code);
-  if (!withCode.length) {
-    toast('Nenhum medidor com código cadastrado. Preencha o campo “Código” para gerar as etiquetas.', 'info', 5000);
+  if (!meters.length) {
+    toast('Nenhum medidor para etiquetar.', 'info', 4000);
     return;
   }
   const area = document.createElement('div');
   area.id = 'print-area';
   area.innerHTML = `<h2 style="font:600 16px system-ui;margin-bottom:6mm">Etiquetas de medidores — HidroLuz</h2>
     <div class="label-sheet">
-      ${withCode.map((m) => {
+      ${meters.map((m) => {
         let svg = '';
-        try { svg = qrSVG(m.code, { size: 150 }); }
-        catch { svg = '<p style="font:11px system-ui">Código longo demais para QR</p>'; }
+        try { svg = qrSVG(linkDoMedidor(m), { size: 150 }); }
+        catch { svg = '<p style="font:11px system-ui">Não foi possível gerar o QR</p>'; }
         return `<div class="label-card">
           ${svg}
           <b>${esc(m.name || '')}</b>
-          <span class="code">${esc(m.code)}</span>
+          <span class="code">${esc(m.code || '')}</span>
           <small>${esc([TYPES[m.type].label, m.location].filter(Boolean).join(' · '))}</small>
         </div>`;
       }).join('')}

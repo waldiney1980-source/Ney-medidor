@@ -13,6 +13,23 @@ import {
   el, esc, fmtAuto, fmtDate, todayISO, parseNum, compressImage, daysBetween,
 } from './utils.js';
 
+/**
+ * Resolve o que veio do QR ou do campo de código.
+ * Aceita o link novo da etiqueta (…#/medidor/<id>), o id cru e o código do
+ * medidor — este último mantém válidas as etiquetas já impressas antes.
+ */
+function medidorDoCodigo(bruto) {
+  const txt = String(bruto || '').trim();
+  if (!txt) return null;
+  const link = txt.match(/#\/medidor\/([^/?#\s]+)/);
+  if (link) {
+    const id = decodeURIComponent(link[1]);
+    const achado = activeMeters().find((m) => m.id === id);
+    if (achado) return achado;
+  }
+  return meterByCode(txt) || activeMeters().find((m) => m.id === txt) || null;
+}
+
 export default async function capture({ params, navigate }) {
   const root = el('<div class="stack"></div>');
   let meter = params[0] ? meterById(params[0]) : null;
@@ -245,7 +262,7 @@ export default async function capture({ params, navigate }) {
           actions: `<button class="btn" data-close>Cancelar</button><button class="btn btn--primary" data-act="ok">Buscar</button>`,
           onMount(sheet, close) {
             sheet.querySelector('[data-act="ok"]').onclick = () => {
-              const found = meterByCode(sheet.querySelector('#mc').value);
+              const found = medidorDoCodigo(sheet.querySelector('#mc').value);
               close();
               if (found) { meter = found; renderForm(); } else toast('Nenhum medidor com esse código.', 'error');
             };
@@ -255,7 +272,7 @@ export default async function capture({ params, navigate }) {
       }
       const code = await scanCode();
       if (!code) return;
-      const found = meterByCode(code) || activeMeters().find((m) => m.id === code);
+      const found = medidorDoCodigo(code);
       if (found) { meter = found; renderForm(); }
       else toast(`Código “${code}” não corresponde a nenhum medidor.`, 'error', 4200);
     };
