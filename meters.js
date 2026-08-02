@@ -379,6 +379,98 @@ export function printLabels(meters) {
   setTimeout(cleanup, 60000);
 }
 
+/* ---------------- escolha das etiquetas ---------------- */
+
+/**
+ * Deixa escolher entre etiquetar tudo o que está no filtro ou marcar medidor
+ * por medidor. Reimpressão de uma etiqueta só é o caso mais comum em campo —
+ * relógio trocado, etiqueta rasgada — e não deve custar uma folha inteira.
+ */
+export function labelsSheet(lista) {
+  if (!lista.length) {
+    toast('Nenhum medidor no filtro atual.', 'info');
+    return;
+  }
+  const marcados = new Set(lista.map((m) => m.id));
+  let modo = 'todos';
+
+  openSheet({
+    title: 'Etiquetas QR',
+    sub: `${lista.length} medidor(es) no filtro atual`,
+    body: `<div class="stack">
+      <div class="field">
+        <label>Quais medidores</label>
+        <div class="filters" style="padding-bottom:0">
+          <button class="chip" data-modo="todos" data-active="true">Todos (${lista.length})</button>
+          <button class="chip" data-modo="escolher">Escolher</button>
+        </div>
+        <span class="hint" id="lab-hint">Sai uma folha com os ${lista.length} medidores do filtro.</span>
+      </div>
+      <div id="lab-lista" hidden>
+        <div class="row" style="gap:8px;margin-bottom:8px">
+          <button class="btn btn--sm" data-tudo="1">Marcar todos</button>
+          <button class="btn btn--sm" data-tudo="0">Desmarcar</button>
+        </div>
+        <div class="list">
+          ${lista.map((m) => `<label class="item" style="cursor:pointer">
+            <input type="checkbox" data-id="${m.id}" checked style="width:20px;height:20px;flex:none;accent-color:var(--brand)">
+            <span class="item__main" style="margin-left:10px">
+              <span class="item__title">${esc(m.name || m.code)}</span>
+              <span class="item__sub">${esc([TYPES[m.type].label, m.code, m.location].filter(Boolean).join(' · '))}</span>
+            </span>
+          </label>`).join('')}
+        </div>
+      </div>
+    </div>`,
+    actions: `<button class="btn" data-close>Cancelar</button>
+      <button class="btn btn--primary" data-act="print">${icon('print', 18)} Imprimir</button>`,
+    onMount(sheet, close) {
+      const caixa = sheet.querySelector('#lab-lista');
+      const dica = sheet.querySelector('#lab-hint');
+      const botao = sheet.querySelector('[data-act="print"]');
+
+      const atualizar = () => {
+        const n = modo === 'todos' ? lista.length : marcados.size;
+        botao.disabled = n === 0;
+        botao.innerHTML = `${icon('print', 18)} Imprimir ${n}`;
+        dica.textContent = modo === 'todos'
+          ? `Sai uma folha com os ${lista.length} medidores do filtro.`
+          : `${n} de ${lista.length} marcado(s).`;
+      };
+
+      sheet.querySelectorAll('[data-modo]').forEach((b) => b.onclick = () => {
+        modo = b.dataset.modo;
+        sheet.querySelectorAll('[data-modo]').forEach((x) => x.dataset.active = String(x === b));
+        caixa.hidden = modo === 'todos';
+        atualizar();
+      });
+
+      sheet.querySelectorAll('[data-tudo]').forEach((b) => b.onclick = () => {
+        const marcar = b.dataset.tudo === '1';
+        marcados.clear();
+        sheet.querySelectorAll('[data-id]').forEach((c) => {
+          c.checked = marcar;
+          if (marcar) marcados.add(c.dataset.id);
+        });
+        atualizar();
+      });
+
+      sheet.querySelectorAll('[data-id]').forEach((c) => c.onchange = () => {
+        if (c.checked) marcados.add(c.dataset.id); else marcados.delete(c.dataset.id);
+        atualizar();
+      });
+
+      botao.onclick = () => {
+        const alvo = modo === 'todos' ? lista : lista.filter((m) => marcados.has(m.id));
+        close();
+        printLabels(alvo);
+      };
+
+      atualizar();
+    },
+  });
+}
+
 /* ---------------- importação em massa ---------------- */
 
 /**
@@ -571,7 +663,7 @@ export default async function meters({ navigate }) {
     head.querySelector('#add').onclick = () => meterFormSheet(null, paint);
     head.querySelector('#sites').onclick = () => sitesSheet(paint);
     head.querySelector('#import').onclick = () => importSheet(paint);
-    head.querySelector('#labels').onclick = () => printLabels(
+    head.querySelector('#labels').onclick = () => labelsSheet(
       activeMeters().filter((m) => type === 'all' || m.type === type)
     );
 
