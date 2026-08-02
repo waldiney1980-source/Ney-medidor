@@ -202,6 +202,33 @@ button, input, select, textarea { font: inherit; color: inherit; }
   -webkit-backdrop-filter: saturate(1.4) blur(16px);
   border-top: 1px solid var(--border);
 }
+/* Faixa de "nova versão" — fica acima da barra de abas para não tapar as abas,
+   e some sozinha quando a pessoa dispensa. */
+.update-bar {
+  position: fixed; left: 12px; right: 12px; z-index: 31;
+  bottom: calc(var(--safe-b) + 68px);
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 12px 11px 15px;
+  border-radius: var(--r-lg);
+  background: var(--brand); color: var(--brand-ink);
+  box-shadow: var(--shadow-3);
+  font-size: 13.5px; font-weight: 560;
+  animation: subir .25s ease;
+}
+.update-bar span { flex: 1 }
+.update-bar button {
+  border: 0; cursor: pointer; font-family: inherit; font-weight: 700;
+  border-radius: var(--r-sm); padding: 7px 12px; font-size: 13px;
+  background: rgba(255, 255, 255, .22); color: var(--brand-ink);
+}
+.update-bar button:hover { background: rgba(255, 255, 255, .32) }
+.update-bar #versao-depois { padding: 7px 10px; background: none; font-size: 15px }
+@keyframes subir { from { opacity: 0; transform: translateY(10px) } to { opacity: 1; transform: none } }
+@media (min-width: 940px) {
+  .update-bar { left: auto; right: 20px; bottom: 20px; max-width: 380px }
+}
+@media (prefers-reduced-motion: reduce) { .update-bar { animation: none } }
+
 .tab {
   display: grid; justify-items: center; gap: 3px;
   padding: 6px 2px; border: 0; background: none; cursor: pointer;

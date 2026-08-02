@@ -174,8 +174,33 @@ async function main() {
   startAutoSync();
 
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-    navigator.serviceWorker.register('./sw.js').catch(() => {});
+    navigator.serviceWorker.register('./sw.js').then((reg) => {
+      /* Procura versão nova ao abrir e de hora em hora — sem isso o navegador
+         só reconsulta o sw.js de tempos em tempos e a correção fica esperando. */
+      reg.update().catch(() => {});
+      setInterval(() => reg.update().catch(() => {}), 60 * 60 * 1000);
+    }).catch(() => {});
+
+    /* O service worker novo assume sozinho e troca os arquivos em cache, mas a
+       tela em uso continua com os módulos antigos até recarregar. Em vez de
+       recarregar no meio de uma leitura, avisamos e deixamos a decisão com quem
+       está usando. */
+    navigator.serviceWorker.addEventListener('controllerchange', avisoDeVersaoNova);
   }
+}
+
+/** Faixa discreta no rodapé: nova versão baixada, esperando um toque. */
+function avisoDeVersaoNova() {
+  if (document.getElementById('versao-nova')) return;
+  const barra = document.createElement('div');
+  barra.id = 'versao-nova';
+  barra.className = 'update-bar';
+  barra.innerHTML = `<span>Nova versão do aplicativo disponível.</span>
+    <button type="button" id="versao-ok">Atualizar</button>
+    <button type="button" id="versao-depois" aria-label="Agora não">✕</button>`;
+  barra.querySelector('#versao-ok').onclick = () => location.reload();
+  barra.querySelector('#versao-depois').onclick = () => barra.remove();
+  document.body.appendChild(barra);
 }
 
 window.addEventListener('beforeinstallprompt', (e) => {
