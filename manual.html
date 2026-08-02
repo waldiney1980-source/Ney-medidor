@@ -1,0 +1,763 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Manual do Usuário — HidroLuz</title>
+<style>
+:root{
+  --agua:#2a78d6; --agua-esc:#1b5599; --agua-esc2:#123a69;
+  --energia:#eb6834; --energia-esc:#c94f1f; --energia-ink:#2a1108;
+  --verde:#1baf7a; --verde-claro:#5fd3aa; --ambar:#eda100;
+
+  --page:#f9f9f7; --surface:#ffffff; --surface-2:#f3f2ee;
+  --ink:#0b0b0b; --ink-2:#52514e; --ink-3:#898781;
+  --line:#e1e0d9; --line-soft:#eeece5;
+  --good:#0ca30c; --good-bg:#e8f6e8; --good-ink:#0a6e0a;
+  --warn:#c98500; --warn-bg:#fdf3dd; --warn-ink:#8a5c00;
+  --crit:#d03b3b; --crit-bg:#fbe9e9; --crit-ink:#a52727;
+  --shadow:0 6px 24px rgba(11,11,11,.10),0 2px 6px rgba(11,11,11,.06);
+  --shadow-sm:0 1px 3px rgba(11,11,11,.08);
+  --radius:16px;
+  --maxw:1000px;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --page:#0d0f11; --surface:#171a1d; --surface-2:#1f2327;
+    --ink:#f0f1f2; --ink-2:#b9bec3; --ink-3:#858b90;
+    --line:#2a2f34; --line-soft:#23282c;
+    --agua:#5a9ce8; --agua-esc:#0d2a4d; --agua-esc2:#081a30;
+    --good:#2fbb2f; --good-bg:#123a12; --good-ink:#7fdc7f;
+    --warn:#fab219; --warn-bg:#3d2f0a; --warn-ink:#f7cd6b;
+    --crit:#e66767; --crit-bg:#421919; --crit-ink:#f1a0a0;
+    --shadow:0 8px 30px rgba(0,0,0,.55);
+    --shadow-sm:0 1px 3px rgba(0,0,0,.45);
+  }
+}
+:root[data-theme="dark"]{
+  --page:#0d0f11; --surface:#171a1d; --surface-2:#1f2327;
+  --ink:#f0f1f2; --ink-2:#b9bec3; --ink-3:#858b90;
+  --line:#2a2f34; --line-soft:#23282c;
+  --agua:#5a9ce8; --agua-esc:#0d2a4d; --agua-esc2:#081a30;
+  --good:#2fbb2f; --good-bg:#123a12; --good-ink:#7fdc7f;
+  --warn:#fab219; --warn-bg:#3d2f0a; --warn-ink:#f7cd6b;
+  --crit:#e66767; --crit-bg:#421919; --crit-ink:#f1a0a0;
+  --shadow:0 8px 30px rgba(0,0,0,.55);
+  --shadow-sm:0 1px 3px rgba(0,0,0,.45);
+}
+:root[data-theme="light"]{
+  --page:#f9f9f7; --surface:#ffffff; --surface-2:#f3f2ee;
+  --ink:#0b0b0b; --ink-2:#52514e; --ink-3:#898781;
+  --line:#e1e0d9; --line-soft:#eeece5;
+  --agua:#2a78d6; --agua-esc:#1b5599; --agua-esc2:#123a69;
+  --good:#0ca30c; --good-bg:#e8f6e8; --good-ink:#0a6e0a;
+  --warn:#c98500; --warn-bg:#fdf3dd; --warn-ink:#8a5c00;
+  --crit:#d03b3b; --crit-bg:#fbe9e9; --crit-ink:#a52727;
+  --shadow:0 6px 24px rgba(11,11,11,.10),0 2px 6px rgba(11,11,11,.06);
+  --shadow-sm:0 1px 3px rgba(11,11,11,.08);
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font-family:Gantari,Montserrat,"Segoe UI",system-ui,-apple-system,sans-serif;
+  background:var(--page); color:var(--ink);
+  -webkit-font-smoothing:antialiased; line-height:1.55;
+}
+h1,h2,h3{margin:0; text-wrap:balance; line-height:1.15}
+p{margin:0}
+.tnum{font-variant-numeric:tabular-nums}
+
+/* ---------- casca do deck ---------- */
+.deck{max-width:var(--maxw); margin:0 auto; padding:0 20px}
+.progress{position:fixed; top:0; left:0; height:4px; background:var(--energia); width:0; z-index:50; transition:width .35s cubic-bezier(.4,0,.2,1)}
+
+.slide{display:none; min-height:100vh; padding:76px 0 108px; flex-direction:column; justify-content:center; animation:fade .45s ease}
+.slide.on{display:flex}
+@keyframes fade{from{opacity:0; transform:translateY(10px)} to{opacity:1; transform:none}}
+@media (prefers-reduced-motion: reduce){ .slide.on{animation:none} .progress{transition:none} }
+
+.eyebrow{display:inline-flex; align-items:center; gap:8px; font-size:12px; font-weight:700; letter-spacing:1.3px; text-transform:uppercase; color:var(--agua); margin-bottom:16px}
+.eyebrow .n{display:inline-grid; place-items:center; width:22px; height:22px; border-radius:6px; background:var(--energia); color:#fff; font-size:12px}
+h2.title{font-size:clamp(28px,4.5vw,44px); font-weight:800; letter-spacing:-.4px; margin-bottom:14px}
+.lead{font-size:clamp(16px,2vw,19px); color:var(--ink-2); max-width:64ch}
+
+/* ---------- peças reutilizáveis ---------- */
+.grid{display:grid; gap:16px}
+.two{grid-template-columns:1fr 1fr}
+.three{grid-template-columns:repeat(3,1fr)}
+@media (max-width:760px){ .two,.three{grid-template-columns:1fr} }
+
+.card{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow-sm)}
+.pad{padding:22px}
+
+.feat{display:flex; gap:14px; align-items:flex-start; background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:18px}
+.feat .ic{flex:0 0 42px; width:42px; height:42px; border-radius:11px; background:var(--surface-2); display:grid; place-items:center; color:var(--agua)}
+.feat h3{font-size:16px; margin-bottom:4px}
+.feat p{font-size:14px; color:var(--ink-2)}
+
+.steps{display:flex; flex-direction:column; gap:14px; counter-reset:s}
+.step{display:flex; gap:16px; align-items:flex-start}
+.step .b{counter-increment:s; flex:0 0 34px; width:34px; height:34px; border-radius:50%; background:var(--agua); color:#fff; font-weight:800; display:grid; place-items:center; font-size:15px}
+.step .b::before{content:counter(s)}
+.step h3{font-size:16.5px; margin-bottom:3px}
+.step p{font-size:14.5px; color:var(--ink-2)}
+.step p code,code{background:var(--surface-2); border:1px solid var(--line); border-radius:6px; padding:1px 6px; font-size:13px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+
+.callout{display:flex; gap:14px; align-items:flex-start; border-radius:14px; padding:16px 18px; font-size:14.5px}
+.callout .ci{flex:0 0 24px}
+.callout.info{background:color-mix(in srgb,var(--agua) 9%,var(--surface)); border:1px solid color-mix(in srgb,var(--agua) 26%,transparent); color:var(--ink)}
+.callout.warn{background:var(--warn-bg); border:1px solid color-mix(in srgb,var(--warn) 40%,transparent); color:var(--ink)}
+.callout.crit{background:var(--crit-bg); border:1px solid color-mix(in srgb,var(--crit) 40%,transparent); color:var(--ink)}
+.callout.good{background:var(--good-bg); border:1px solid color-mix(in srgb,var(--good) 40%,transparent); color:var(--ink)}
+
+table{width:100%; border-collapse:collapse; font-size:14.5px}
+th,td{text-align:left; padding:11px 14px; border-bottom:1px solid var(--line-soft)}
+th{font-size:12px; text-transform:uppercase; letter-spacing:.8px; color:var(--ink-3); font-weight:700}
+tbody tr:last-child td{border-bottom:none}
+
+.pill{display:inline-flex; align-items:center; gap:6px; border-radius:999px; padding:3px 11px; font-size:12.5px; font-weight:700}
+.pill.agua{background:color-mix(in srgb,var(--agua) 15%,transparent); color:var(--agua)}
+.pill.energia{background:color-mix(in srgb,var(--energia) 17%,transparent); color:var(--energia-esc)}
+:root[data-theme="dark"] .pill.energia{color:#ff9d70}
+@media (prefers-color-scheme: dark){ .pill.energia{color:#ff9d70} }
+
+/* ---------- telinha do celular ---------- */
+.phone{width:250px; border:1px solid var(--line); border-radius:26px; background:var(--surface); box-shadow:var(--shadow); overflow:hidden; flex:0 0 auto}
+.phone .top{background:var(--surface-2); padding:11px 14px; display:flex; align-items:center; gap:9px; border-bottom:1px solid var(--line)}
+.phone .top .lg{width:26px; height:26px; border-radius:8px; background:linear-gradient(135deg,var(--verde),var(--agua)); display:grid; place-items:center; color:#fff}
+.phone .top b{font-size:13.5px; display:block; line-height:1.2}
+.phone .top span{font-size:10.5px; color:var(--ink-3)}
+.phone .body{padding:13px; display:flex; flex-direction:column; gap:9px; min-height:180px}
+.phone .row2{display:flex; align-items:center; gap:9px; border:1px solid var(--line); border-radius:11px; padding:9px 11px}
+.phone .row2 .ic{width:28px; height:28px; border-radius:8px; display:grid; place-items:center; color:#fff; flex:0 0 auto}
+.phone .row2 .ic.e{background:var(--energia)} .phone .row2 .ic.a{background:var(--agua)}
+.phone .row2 b{font-size:12.5px; display:block; line-height:1.25}
+.phone .row2 small{font-size:10.5px; color:var(--ink-3)}
+.phone .row2 .val{margin-left:auto; text-align:right}
+.phone .row2 .val b{font-size:14px}
+.phone .tabs{display:flex; border-top:1px solid var(--line); background:var(--surface-2)}
+.phone .tabs div{flex:1; text-align:center; padding:8px 2px; font-size:9.5px; color:var(--ink-3)}
+.phone .tabs div.on{color:var(--agua); font-weight:700}
+.showcase{display:flex; gap:26px; align-items:center; flex-wrap:wrap}
+.showcase .txt{flex:1; min-width:260px}
+
+/* ---------- FAQ ---------- */
+.qa{border:1px solid var(--line); border-radius:13px; background:var(--surface); margin-bottom:10px; cursor:pointer; overflow:hidden}
+.qa .q{display:flex; align-items:center; gap:12px; padding:15px 18px; font-weight:700; font-size:15px}
+.qa .q::after{content:'+'; margin-left:auto; font-size:20px; color:var(--ink-3); font-weight:400}
+.qa.open .q::after{content:'−'}
+.qa .a{display:none; padding:0 18px 16px 48px; font-size:14.5px; color:var(--ink-2)}
+.qa.open .a{display:block}
+.qa .qn{flex:0 0 26px; width:26px; height:26px; border-radius:8px; background:var(--surface-2); color:var(--agua); display:grid; place-items:center; font-size:13px}
+
+/* ---------- quiz ---------- */
+.qq{border:1px solid var(--line); border-radius:14px; background:var(--surface); padding:18px; margin-bottom:14px}
+.qq h3{font-size:15.5px; margin-bottom:12px}
+.qopt{border:1px solid var(--line); border-radius:10px; padding:11px 14px; font-size:14px; margin-bottom:8px; cursor:pointer; background:var(--surface-2)}
+.qopt:hover{border-color:var(--agua)}
+.qq.answered .qopt{cursor:default}
+.qopt.certo{background:var(--good-bg); border-color:var(--good); color:var(--good-ink); font-weight:700}
+.qopt.errado{background:var(--crit-bg); border-color:var(--crit); color:var(--crit-ink)}
+#qscore{font-size:15px; font-weight:700; text-align:center; padding:16px; color:var(--ink-2)}
+
+/* ---------- capa ---------- */
+#s0{background:linear-gradient(160deg,var(--agua-esc) 0%,var(--agua-esc2) 62%,#06121f 100%)}
+#s0 .cov-logo{display:flex; align-items:center; gap:12px; margin-bottom:30px}
+#s0 .cov-logo .mk{width:44px; height:44px; border-radius:13px; background:linear-gradient(135deg,var(--verde),#2a78d6); display:grid; place-items:center}
+#s0 .cov-logo .nm{color:#fff; font-weight:800; font-size:16px; line-height:1.15}
+#s0 .cov-logo .sb{color:#9fc6ee; font-size:12px}
+#s0 .kick{display:inline-block; font-size:12.5px; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:var(--energia); margin-bottom:18px}
+#s0 h1{font-size:clamp(34px,6.5vw,68px); font-weight:800; letter-spacing:-1.5px; line-height:1.02; color:#fff; max-width:15ch}
+#s0 .sub{font-size:clamp(16px,2.4vw,21px); color:#c6ddf5; margin-top:20px; max-width:54ch}
+#s0 .meta{margin-top:44px; display:flex; gap:26px; flex-wrap:wrap; font-size:13.5px; color:#9fc6ee}
+#s0 .meta b{color:#fff; display:block; font-size:19px; font-weight:800}
+#s0 .go{margin-top:40px; display:inline-flex; align-items:center; gap:10px; background:var(--energia); color:#fff; font-weight:800; font-size:15px; padding:14px 24px; border-radius:12px; border:none; cursor:pointer; box-shadow:0 8px 24px rgba(235,104,52,.4); font-family:inherit}
+#s0 .go:hover{background:#ff7c48}
+
+/* ---------- sumário ---------- */
+.toc{position:fixed; inset:0; z-index:60; background:color-mix(in srgb,var(--page) 96%,transparent); backdrop-filter:blur(6px); padding:70px 20px; overflow:auto; display:none}
+.toc.open{display:block}
+.toc h2{max-width:var(--maxw); margin:0 auto 22px; font-size:24px}
+.tocgrid{max-width:var(--maxw); margin:0 auto; display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:10px}
+.tocgrid button{text-align:left; border:1px solid var(--line); background:var(--surface); border-radius:11px; padding:12px 15px; font-family:inherit; font-size:14px; color:var(--ink); cursor:pointer; display:flex; gap:10px}
+.tocgrid button:hover{border-color:var(--agua); color:var(--agua)}
+.tocgrid button i{font-style:normal; color:var(--ink-3); font-weight:700; font-variant-numeric:tabular-nums}
+.tclose{position:absolute; top:18px; right:22px; width:36px; height:36px; border-radius:10px; border:1px solid var(--line); background:var(--surface); cursor:pointer; font-size:16px; color:var(--ink-2)}
+
+/* ---------- controles ---------- */
+.controls{position:fixed; bottom:0; left:0; right:0; z-index:40; display:flex; align-items:center; justify-content:center; gap:14px; padding:14px 18px;
+  background:color-mix(in srgb,var(--page) 86%,transparent); backdrop-filter:blur(10px); border-top:1px solid var(--line)}
+.controls .nbtn{display:inline-flex; align-items:center; gap:7px; border:1px solid var(--line); background:var(--surface); color:var(--ink); font-family:inherit; font-weight:700; font-size:13.5px; padding:9px 15px; border-radius:10px; cursor:pointer}
+.controls .nbtn:hover:not(:disabled){border-color:var(--agua); color:var(--agua)}
+.controls .nbtn:disabled{opacity:.4; cursor:not-allowed}
+.controls .nbtn.primary{background:var(--agua); color:#fff; border-color:transparent}
+.controls .nbtn.primary:hover{background:var(--agua-esc); color:#fff}
+.dots{display:flex; gap:7px; flex-wrap:wrap; max-width:340px; justify-content:center}
+.dots button{width:9px; height:9px; border-radius:50%; border:none; background:var(--line); cursor:pointer; padding:0}
+.dots button.on{background:var(--energia); transform:scale(1.25)}
+@media (max-width:640px){ .dots{display:none} }
+.counter{position:fixed; top:16px; right:20px; z-index:40; font-size:12.5px; font-weight:700; color:var(--ink-3); background:var(--surface); border:1px solid var(--line); border-radius:999px; padding:5px 13px; font-variant-numeric:tabular-nums}
+.brandmark{position:fixed; top:14px; left:20px; z-index:40; display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:700; color:var(--ink-2)}
+.theme-toggle{position:fixed; top:14px; right:118px; z-index:41; width:34px; height:34px; border-radius:9px; border:1px solid var(--line); background:var(--surface); cursor:pointer; display:grid; place-items:center; color:var(--ink-2)}
+.theme-toggle:hover{color:var(--agua); border-color:var(--agua)}
+/* A capa tem fundo escuro próprio, então a marca precisa clarear junto. */
+body.capa .brandmark{color:#fff}
+
+@media print{ .controls,.counter,.theme-toggle,.brandmark,.toc{display:none} .slide{display:flex!important; page-break-after:always; min-height:auto} }
+</style>
+
+<div class="progress" id="progress"></div>
+<div class="brandmark">
+  <svg width="17" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2.7S5.5 9.6 5.5 14.2a6.5 6.5 0 0 0 13 0C18.5 9.6 12 2.7 12 2.7z"/></svg>
+  HidroLuz
+</div>
+<button class="theme-toggle" id="themeBtn" aria-label="Alternar tema claro e escuro">
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/></svg>
+</button>
+<div class="counter"><span id="cur">1</span> / <span id="tot">18</span></div>
+
+<!-- ============ CAPA ============ -->
+<section class="slide on" id="s0" data-title="Capa">
+  <div class="deck">
+    <div class="cov-logo">
+      <div class="mk"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.1"><path d="M12 2.7S5.5 9.6 5.5 14.2a6.5 6.5 0 0 0 13 0C18.5 9.6 12 2.7 12 2.7z"/></svg></div>
+      <div><div class="nm">HidroLuz</div><div class="sb">Leitura de energia e água</div></div>
+    </div>
+    <span class="kick">Manual do usuário</span>
+    <h1>Leitura de medidores pelo celular</h1>
+    <p class="sub">Você fotografa o relógio, o app lê o número, calcula o consumo e o custo, e monta o relatório do lojista sozinho. Funciona sem internet no meio do corredor e sincroniza quando o sinal volta. Este manual mostra tudo, do cadastro ao relatório.</p>
+    <div class="meta">
+      <div><b>Foto + OCR</b> o número sai da própria imagem</div>
+      <div><b>Sem internet</b> a leitura não espera sinal</div>
+      <div><b>QR na etiqueta</b> aponta e já sabe qual medidor</div>
+      <div><b>4 formatos</b> de relatório para exportar</div>
+    </div>
+    <br>
+    <button class="go" onclick="go(1)">Começar
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    </button>
+  </div>
+</section>
+
+<!-- ============ 1 · O QUE FAZ ============ -->
+<section class="slide" id="s1" data-title="O que o HidroLuz faz">
+  <div class="deck">
+    <span class="eyebrow"><span class="n">1</span> Visão geral</span>
+    <h2 class="title">O que o HidroLuz faz por você</h2>
+    <div class="grid two" style="margin-top:8px">
+      <div class="feat"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div><div><h3>Lê o número na foto</h3><p>Você fotografa o visor e o app sugere o valor. Nada é preenchido sozinho: você confere contra a foto antes de gravar.</p></div></div>
+      <div class="feat"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h3v3h-3zM19 19h2v2h-2z"/></svg></div><div><h3>Identifica pelo QR</h3><p>Cada medidor ganha uma etiqueta impressa. Aponta a câmera e o app já abre a tela certa — sem procurar na lista.</p></div></div>
+      <div class="feat"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10M18 20V4M6 20v-4"/></svg></div><div><h3>Calcula consumo e custo</h3><p>Diferença entre leituras, fator do relógio e tarifa. O valor em reais sai pronto, por medidor e por unidade.</p></div></div>
+      <div class="feat"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></div><div><h3>Avisa quem passou do limite</h3><p>Você combina um teto de consumo com o lojista. Estourou, o app monta o aviso pronto para WhatsApp ou e-mail.</p></div></div>
+      <div class="feat"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg></div><div><h3>Exporta o relatório</h3><p>PDF gerencial para o lojista, Excel, PDF simples ou CSV — com filtro de período e as fotos anexadas.</p></div></div>
+      <div class="feat"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.5a4.5 4.5 0 0 1 .5-9 6 6 0 0 1 11.4 1.6A4 4 0 0 1 18 13"/><path d="M12 12v9M8.5 17.5L12 21l3.5-3.5"/></svg></div><div><h3>Funciona sem internet</h3><p>A leitura é gravada no aparelho na hora. Quando o sinal volta, sobe para a nuvem sozinha.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 2 · INSTALAR ============ -->
+<section class="slide" id="s2" data-title="Instalar no celular">
+  <div class="deck">
+    <span class="eyebrow"><span class="n">2</span> Primeiros passos</span>
+    <h2 class="title">Instalar como aplicativo no celular</h2>
+    <p class="lead" style="margin-bottom:24px">O HidroLuz é um endereço de internet que vira aplicativo. Instalado, ele ganha ícone na tela inicial, abre em tela cheia sem a barra do navegador, usa a câmera normalmente e continua funcionando sem sinal.</p>
+    <div class="grid two">
+      <div class="card pad">
+        <span class="pill agua" style="margin-bottom:12px">Android · Chrome</span>
+        <div class="steps">
+          <div class="step"><div class="b"></div><div><h3>Abra o endereço</h3><p><code>waldiney1980-source.github.io/Ney-medidor/</code></p></div></div>
+          <div class="step"><div class="b"></div><div><h3>Menu de três pontinhos</h3><p>No canto superior direito do Chrome.</p></div></div>
+          <div class="step"><div class="b"></div><div><h3>Instalar aplicativo</h3><p>Ou <b>Adicionar à tela inicial</b>, dependendo da versão.</p></div></div>
+        </div>
+      </div>
+      <div class="card pad">
+        <span class="pill energia" style="margin-bottom:12px">iPhone · Safari</span>
+        <div class="steps">
+          <div class="step"><div class="b"></div><div><h3>Abra o mesmo endereço</h3><p>Precisa ser no <b>Safari</b> — no iPhone só ele instala.</p></div></div>
+          <div class="step"><div class="b"></div><div><h3>Botão de compartilhar</h3><p>O quadradinho com a seta para cima, embaixo.</p></div></div>
+          <div class="step"><div class="b"></div><div><h3>Adicionar à Tela de Início</h3><p>Role a lista até achar a opção.</p></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="callout info" style="margin-top:20px">
+      <span class="ci"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg></span>
+      <span>Na primeira leitura o celular vai pedir <b>permissão para usar a câmera</b>. Toque em permitir — sem isso a foto do relógio não funciona.</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 3 · LOCAL x NUVEM ============ -->
+<section class="slide" id="s3" data-title="Local ou nuvem">
+  <div class="deck">
+    <span class="eyebrow"><span class="n">3</span> Como os dados ficam</span>
+    <h2 class="title">O selo “Local” e o que ele quer dizer</h2>
+    <p class="lead" style="margin-bottom:22px">No alto da tela existe um selo. Ele diz onde as suas leituras estão sendo guardadas — e é o ajuste que mais gera dúvida.</p>
+    <div class="grid two">
+      <div class="card pad">
+        <span class="pill" style="background:var(--surface-2);color:var(--ink-2);margin-bottom:10px">● Local</span>
+        <h3 style="font-size:17px;margin-bottom:8px">Só neste aparelho</h3>
+        <p style="font-size:14.5px;color:var(--ink-2)">Tudo funciona: foto, leitura do número, consumo, custo, relatório. Mas os dados <b>ficam presos neste celular</b>. Outro aparelho não enxerga, e se o celular sumir os dados vão junto.</p>
+      </div>
+      <div class="card pad">
+        <span class="pill agua" style="margin-bottom:10px">● Sincronizado</span>
+        <h3 style="font-size:17px;margin-bottom:8px">Na nuvem, para a equipe</h3>
+        <p style="font-size:14.5px;color:var(--ink-2)">As leituras sobem para o servidor e aparecem para todo mundo que entra com login. Continua funcionando sem internet — só espera o sinal para enviar.</p>
+      </div>
+    </div>
+    <div class="callout warn" style="margin-top:20px">
+      <span class="ci"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg></span>
+      <span>O app <b>começa sempre em “Local”</b>, e esse ajuste vale por aparelho. Celular novo, navegador novo ou dados do site limpos: volta para Local, mesmo que já estivesse sincronizado antes. As leituras que já subiram continuam guardadas na nuvem — é só o aparelho que se desconectou.</span>
+    </div>
+    <h3 style="font-size:17px;margin:26px 0 12px">Para ligar a nuvem</h3>
+    <div class="steps">
+      <div class="step"><div class="b"></div><div><h3>Toque no selo “Local”</h3><p>Ou vá em <b>Ajustes → Sincronização na nuvem</b>.</p></div></div>
+      <div class="step"><div class="b"></div><div><h3>Informe o projeto</h3><p>A <b>URL</b> e a <b>chave publicável</b> do Supabase. Pergunte ao responsável se não tiver em mãos.</p></div></div>
+      <div class="step"><div class="b"></div><div><h3>Entre com e-mail e senha</h3><p>A mesma conta dos outros aparelhos. Quem ainda não tem usa <b>Criar conta</b>.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 4 · AS TELAS ============ -->
+<section class="slide" id="s4" data-title="As cinco telas">
+  <div class="deck">
+    <span class="eyebrow"><span class="n">4</span> Mapa do app</span>
+    <h2 class="title">As cinco telas da barra de baixo</h2>
+    <div class="showcase">
+      <div class="phone">
+        <div class="top"><div class="lg"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2"><path d="M12 2.7S5.5 9.6 5.5 14.2a6.5 6.5 0 0 0 13 0C18.5 9.6 12 2.7 12 2.7z"/></svg></div><div><b>Painel</b><span>Consumo de energia e água</span></div></div>
+        <div class="body">
+          <div class="row2"><span class="ic e"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L4.5 13H11l-1 9 8.5-11H12z"/></svg></span><span><b>Loja Tijuca</b><small>E-TIJ</small></span><span class="val"><b>735</b><small>12/07</small></span></div>
+          <div class="row2"><span class="ic a"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3S6 10 6 14a6 6 0 0 0 12 0c0-4-6-11-6-11z"/></svg></span><span><b>Água — Loja 12</b><small>A-JAC</small></span><span class="val"><b>94</b><small>01/07</small></span></div>
+        </div>
+        <div class="tabs"><div class="on">Painel</div><div>Ler</div><div>Medidores</div><div>Histórico</div><div>Ajustes</div></div>
+      </div>
+      <div class="txt">
+        <table>
+          <tbody>
+            <tr><td style="width:120px"><b>Painel</b></td><td>Resumo do mês: consumo, custo estimado, gráficos e quem passou do limite.</td></tr>
+            <tr><td><b>Ler</b></td><td>O botão do meio, destacado. É por onde você registra uma leitura nova em campo.</td></tr>
+            <tr><td><b>Medidores</b></td><td>Cadastro dos relógios, unidades, etiquetas QR e a exportação geral.</td></tr>
+            <tr><td><b>Histórico</b></td><td>Todas as leituras já registradas, com busca e filtros de período.</td></tr>
+            <tr><td><b>Ajustes</b></td><td>Seu nome, sincronização, tarifas, alertas, tema e cópia de segurança.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 5 · UNIDADES ============ -->
+<section class="slide" id="s5" data-title="Unidades">
+  <div class="deck">
+    <span class="eyebrow"><span class="n">5</span> Cadastro</span>
+    <h2 class="title">Comece pelas unidades</h2>
+    <p class="lead" style="margin-bottom:22px">Unidade é o ponto que consome: uma loja, uma sala, um quiosque. Os medidores são pendurados nela, e é no cadastro da unidade que ficam o dono e os limites. Em <b>Medidores → Unidades</b>.</p>
+    <div class="grid two">
+      <div class="card pad">
+        <h3 style="font-size:16px;margin-bottom:12px">Quem é a unidade</h3>
+        <table><tbody>
+          <tr><td><b>Nome</b></td><td>Como você chama no dia a dia.</td></tr>
+          <tr><td><b>Segmento</b></td><td>Padaria, restaurante, salão, academia… O app usa isso para dar dicas de economia do ramo.</td></tr>
+          <tr><td><b>Proprietário</b></td><td>Nome, WhatsApp e e-mail — é para quem o aviso vai.</td></tr>
+        </tbody></table>
+      </div>
+      <div class="card pad">
+        <h3 style="font-size:16px;margin-bottom:12px">Até onde pode consumir</h3>
+        <table><tbody>
+          <tr><td><b>Energia</b></td><td>Teto em kWh no mês.</td></tr>
+          <tr><td><b>Água</b></td><td>Teto em m³ no mês.</td></tr>
+          <tr><td><b>Custo</b></td><td>Teto em reais somando tudo.</td></tr>
+          <tr><td><b>Aumento (%)</b></td><td>Alternativa: avisa quando subir demais em relação ao normal daquela unidade.</td></tr>
+        </tbody></table>
+      </div>
+    </div>
+    <div class="callout info" style="margin-top:20px">
+      <span class="ci"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg></span>
+      <span>Não precisa preencher todos os limites. Deixe em branco os que não quiser acompanhar — só os preenchidos geram aviso. E dá para usar o app sem unidade nenhuma: os medidores ficam agrupados em <b>“Sem unidade”</b>.</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 6 · MEDIDORES ============ -->
+<section class="slide" id="s6" data-title="Cadastrar medidor">
+  <div class="deck">
+    <span class="eyebrow"><span class="n">6</span> Cadastro</span>
+    <h2 class="title">Cadastrar um medidor</h2>
+    <p class="lead" style="margin-bottom:20px">Em <b>Medidores</b>, toque no <b>+</b> azul. Só o nome é obrigatório — o resto melhora o cálculo e a organização.</p>
+    <div class="card pad">
+      <table>
+        <thead><tr><th>Campo</th><th>Para que serve</th></tr></thead>
+        <tbody>
+          <tr><td><b>Tipo</b></td><td><span class="pill energia">Energia</span> conta em kWh · <span class="pill agua">Água</span> conta em m³. Define a cor e a unidade em todo o app.</td></tr>
+          <tr><td><b>Nome *</b></td><td>Único campo obrigatório. Ex.: <i>Loja 12 — Energia</i>.</td></tr>
+          <tr><td><b>Código</b></td><td>O número gravado no relógio pela concessionária. Vai na etiqueta QR e no relatório.</td></tr>
+          <tr><td><b>Unidade</b></td><td>A qual loja este relógio pertence.</td></tr>
+          <tr><td><b>Local</b></td><td>Onde ele está fisicamente. Ajuda o leiturista a achar: <i>corredor de serviço, quadro 3</i>.</td></tr>
+          <tr><td><b>Fator</b></td><td>Multiplicador do relógio. Se não houver, deixe <code>1</code>. Medidor com transformador costuma ter fator maior.</td></tr>
+          <tr><td><b>Dígitos</b></td><td>Quantas casas o visor tem. O app usa para checar se o valor digitado faz sentido.</td></tr>
+          <tr><td><b>Tarifa própria</b></td><td>Só se este medidor tiver preço diferente do geral. Em branco, usa a tarifa de Ajustes.</td></tr>
+          <tr><td><b>Situação</b></td><td>Inativo some das telas de leitura sem apagar o histórico.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout warn" style="margin-top:18px">
+      <span class="ci"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg></span>
+      <span>O <b>fator</b> é o campo que mais causa erro de conta. Ele multiplica todo o consumo: um fator errado não atrapalha a leitura, mas infla ou encolhe a fatura inteira daquele medidor. Na dúvida, confira na plaqueta do relógio antes de sair a cobrança.</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 7 · ETIQUETAS ============ -->
+<section class="slide" id="s7" data-title="Etiquetas QR">
+  <div class="deck">
+    <span class="eyebrow"><span class="n">7</span> Campo</span>
+    <h2 class="title">Etiquetas QR: o atalho do leiturista</h2>
+    <p class="lead" style="margin-bottom:24px">Cada medidor gera um QR próprio. Colado no relógio, ele elimina o passo de procurar o medidor certo numa lista — e elimina junto o erro de lançar a leitura no medidor errado, que é o mais chato de descobrir depois.</p>
+    <div class="steps">
+      <div class="step"><div class="b"></div><div><h3>Medidores → Etiquetas QR</h3><p>Sai a folha com todos os medidores do filtro que estiver aplicado. Quer só as de energia? Marque <b>Energia</b> antes.</p></div></div>
+      <div class="step"><div class="b"></div><div><h3>Imprima e cole</h3><p>Cada etiqueta traz o QR, o nome e o código. Vale plastificar — quadro elétrico e abrigo de hidrômetro são ambientes hostis para papel.</p></div></div>
+      <div class="step"><div class="b"></div><div><h3>Em campo, aponte a câmera</h3><p>Na tela <b>Ler</b>, use o botão de QR. O app abre direto no medidor certo.</p></div></div>
+    </div>
+    <div class="callout good" style="margin-top:22px">
+      <span class="ci"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg></span>
+      <span>Numa ronda com muitos relógios parecidos, a etiqueta é o que mais economiza tempo — e o que mais evita retrabalho.</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 8 · REGISTRAR LEITURA ============ -->
+<section class="slide" id="s8" data-title="Registrar leitura">
+  <div class="deck">
+    <span class="eyebrow"><span class="n">8</span> O dia a dia</span>
+    <h2 class="title">Registrar uma leitura</h2>
+    <p class="lead" style="margin-bottom:22px">É a tela <b>Ler</b>, o botão do meio. O caminho inteiro leva menos de meio minuto por relógio.</p>
+    <div class="steps">
+      <div class="step"><div class="b"></div><div><h3>Escolha o medidor</h3><p>Pelo <b>QR da etiqueta</b>, ou buscando por nome, código ou local.</p></div></div>
+      <div class="step"><div class="b"></div><div><h3>Fotografe o visor</h3><p>Enquadre só o relógio, sem reflexo. A foto fica guardada junto da leitura — é ela que resolve discussão de cobrança depois.</p></div></div>
+      <div class="step"><div class="b"></div><div><h3>Confira o número sugerido</h3><p>O app lê a foto e propõe o valor, com o nível de confiança. Bateu com a foto? <b>Usar</b>. Não bateu? Digite no teclado.</p></div></div>
+      <div class="step"><div class="b"></div><div><h3>Complete se precisar</h3><p>Data (vem a de hoje), leiturista (vem o nome de Ajustes) e observação — <i>lacre rompido, relógio embaçado</i>.</p></div></div>
+      <div class="step"><div class="b"></div><div><h3>Registrar</h3><p>Grava na hora, com ou sem sinal.</p></div></div>
+    </div>
+    <div class="callout crit" style="margin-top:22px">
+      <span class="ci"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg></span>
+      <span><b>O número lido na foto nunca entra sozinho.</b> É sempre uma sugestão que você aceita ou recusa. Um dígito trocado vira consumo errado, cobrança errada e discussão com o lojista — conferir contra a foto leva dois segundos.</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 9 · QUANDO NÃO LÊ ============ -->
+<section class="slide" id="s9" data-title="Quando a foto não é lida">
+  <div class="deck">
+    <span class="eyebrow"><span class="n">9</span> O dia a dia</span>
+    <h2 class="title">Quando o app não consegue ler a foto</h2>
+    <p class="lead" style="margin-bottom:22px">Acontece, e não trava o seu trabalho: em qualquer um dos casos abaixo você digita o valor no teclado e segue. A foto continua guardada.</p>
+    <div class="grid two">
+      <div class="feat"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div><div><h3>Relógio de ponteiro ou de rodinhas</h3><p>Sem internet, o app só dá conta de <b>visor digital de números quadrados</b>. Ponteiro e rodinha precisam do servidor — com sinal, ele lê.</p></div></div>
+      <div class="feat"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2.7S5.5 9.6 5.5 14.2a6.5 6.5 0 0 0 13 0"/><path d="M3 3l18 18"/></svg></div><div><h3>Sem sinal no corredor</h3><p>Ele avisa que está offline e libera o teclado. Nada se perde: a leitura sobe quando o sinal voltar.</p></div></div>
+      <div class="feat"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3.5"/><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/></svg></div><div><h3>Foto ruim</h3><p>Reflexo, vidro sujo, longe demais. Toque em <b>Outra foto</b> e chegue mais perto, sem o flash bater no vidro.</p></div></div>
+      <div class="feat"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v4M16 3v4M3 9h18M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/></svg></div><div><h3>Duas respostas diferentes</h3><p>Quando o aparelho e o servidor discordam, o app mostra os dois números e deixa <b>você</b> escolher olhando a foto.</p></div></div>
+    </div>
+    <div class="callout info" style="margin-top:20px">
+      <span class="ci"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg></span>
+      <span>Se preferir digitar sempre, desligue a leitura por foto em <b>Ajustes → Leitura pela foto</b>. A câmera continua tirando a foto de comprovação.</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 10 · PAINEL ============ -->
+<section class="slide" id="s10" data-title="Painel">
+  <div class="deck">
+    <span class="eyebrow"><span class="n">10</span> Acompanhamento</span>
+    <h2 class="title">Lendo o Painel</h2>
+    <p class="lead" style="margin-bottom:24px">É a primeira tela ao abrir. Ela responde três perguntas: quanto se gastou, quanto isso custa e quem fugiu do padrão.</p>
+    <div class="grid three">
+      <div class="card pad"><h3 style="font-size:16px;margin-bottom:7px">Consumo do período</h3><p style="font-size:14px;color:var(--ink-2)">Energia em kWh e água em m³, somando todos os medidores. Sempre a <b>diferença entre leituras</b>, nunca o número do visor.</p></div>
+      <div class="card pad"><h3 style="font-size:16px;margin-bottom:7px">Custo estimado</h3><p style="font-size:14px;color:var(--ink-2)">Consumo × tarifa. É estimativa: a conta da concessionária tem bandeira, taxas e impostos que o app não conhece.</p></div>
+      <div class="card pad"><h3 style="font-size:16px;margin-bottom:7px">Quem estourou</h3><p style="font-size:14px;color:var(--ink-2)">As unidades que passaram do limite combinado, com o quanto passaram — e o botão para avisar o dono.</p></div>
+    </div>
+    <div class="callout warn" style="margin-top:22px">
+      <span class="ci"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg></span>
+      <span>O primeiro consumo só aparece na <b>segunda</b> leitura de cada medidor. Uma leitura sozinha é só a posição do relógio — não existe consumo sem duas medições para subtrair.</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 11 · HISTÓRICO ============ -->
+<section class="slide" id="s11" data-title="Histórico">
+  <div class="deck">
+    <span class="eyebrow"><span class="n">11</span> Acompanhamento</span>
+    <h2 class="title">Histórico: achar uma leitura específica</h2>
+    <p class="lead" style="margin-bottom:22px">Toda leitura já registrada está aqui, da mais nova para a mais antiga, com foto, autor e observação.</p>
+    <div class="card pad">
+      <table>
+        <thead><tr><th>Recurso</th><th>O que faz</th></tr></thead>
+        <tbody>
+          <tr><td><b>Busca</b></td><td>Por medidor, leiturista ou texto da observação. Achar todas as vezes que alguém anotou “lacre rompido” é um campo de busca.</td></tr>
+          <tr><td><b>Período</b></td><td>Atalhos de 30 dias, 90 dias, 12 meses e ano atual — ou duas datas escolhidas por você.</td></tr>
+          <tr><td><b>Tipo</b></td><td>Só energia, só água, ou os dois.</td></tr>
+          <tr><td><b>Unidade</b></td><td>Isola uma loja específica.</td></tr>
+          <tr><td><b>Exportar</b></td><td>O botão de download ao lado da busca gera o relatório do que estiver filtrado.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout info" style="margin-top:20px">
+      <span class="ci"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg></span>
+      <span>Errou um número? Abra a leitura no histórico e corrija — o consumo e o custo são recalculados na hora. Apagar também dá, mas corrigir preserva o histórico.</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 12 · EXPORTAR ============ -->
+<section class="slide" id="s12" data-title="Exportar relatórios">
+  <div class="deck">
+    <span class="eyebrow"><span class="n">12</span> Relatórios</span>
+    <h2 class="title">Exportar: quatro formatos, um período</h2>
+    <p class="lead" style="margin-bottom:20px">A mesma janela de exportação abre em três lugares: em <b>Medidores → Exportar todos</b> (junta todos de uma vez), no <b>Histórico</b> (o que estiver filtrado) e na <b>ficha de um medidor</b> (só ele).</p>
+    <div class="grid two">
+      <div class="card pad">
+        <h3 style="font-size:16px;margin-bottom:12px">Escolha o período</h3>
+        <p style="font-size:14.5px;color:var(--ink-2);margin-bottom:12px">Atalhos de <b>30 dias</b>, <b>90 dias</b>, <b>12 meses</b> e <b>ano atual</b>, ou os campos <b>De</b> e <b>Até</b> para qualquer intervalo. <b>Tudo</b> volta ao período cheio.</p>
+        <p style="font-size:14.5px;color:var(--ink-2)">Pedir 12 meses num medidor com 3 meses de leitura não inventa período vazio: o começo fica na leitura mais antiga que existe.</p>
+      </div>
+      <div class="card pad">
+        <h3 style="font-size:16px;margin-bottom:12px">Escolha o formato</h3>
+        <table><tbody>
+          <tr><td><b>PDF gerencial</b></td><td>Para o lojista: resumo, comparação com o mês anterior, maiores consumidores e dicas do ramo.</td></tr>
+          <tr><td><b>Excel</b></td><td>Para trabalhar os números você mesmo.</td></tr>
+          <tr><td><b>PDF simples</b></td><td>Só a lista de leituras.</td></tr>
+          <tr><td><b>CSV</b></td><td>Para importar em outro sistema.</td></tr>
+        </tbody></table>
+      </div>
+    </div>
+    <div class="callout info" style="margin-top:20px">
+      <span class="ci"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg></span>
+      <span><b>Com fotos</b> anexa a imagem de cada relógio ao PDF e à planilha — é o que sustenta a cobrança numa contestação. Deixa o arquivo bem maior e, se as fotos estiverem só na nuvem, precisa de internet para baixar. Para conferência rápida, <b>Só os dados</b> resolve. O CSV nunca leva foto.</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 13 · LIMITES E AVISO ============ -->
+<section class="slide" id="s13" data-title="Limites e avisos">
+  <div class="deck">
+    <span class="eyebrow"><span class="n">13</span> Gestão</span>
+    <h2 class="title">Limites e o aviso ao proprietário</h2>
+    <p class="lead" style="margin-bottom:22px">Esta é a parte que transforma leitura em gestão: em vez de descobrir o estouro na fatura, o lojista é avisado dentro do mês, quando ainda dá para corrigir.</p>
+    <div class="steps">
+      <div class="step"><div class="b"></div><div><h3>Combine o teto</h3><p>No cadastro da unidade: kWh, m³, reais — ou um percentual de aumento sobre o normal dela.</p></div></div>
+      <div class="step"><div class="b"></div><div><h3>O app compara sozinho</h3><p>A cada leitura nova ele soma o mês e confere contra o limite.</p></div></div>
+      <div class="step"><div class="b"></div><div><h3>Estourou, o aviso fica pronto</h3><p>Com o quanto passou, o percentual e <b>sugestões de economia do segmento</b> — uma padaria recebe dicas de forno e câmara fria; um salão, de secador e ar-condicionado.</p></div></div>
+      <div class="step"><div class="b"></div><div><h3>Você envia</h3><p>Por <b>WhatsApp</b> ou <b>e-mail</b>, com o texto já montado. Dá para revisar antes de mandar.</p></div></div>
+    </div>
+    <div class="callout good" style="margin-top:22px">
+      <span class="ci"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg></span>
+      <span>O aviso sai no nome do responsável cadastrado na unidade. Vale conferir o WhatsApp e o e-mail antes da primeira cobrança do mês.</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 14 · AJUSTES ============ -->
+<section class="slide" id="s14" data-title="Ajustes">
+  <div class="deck">
+    <span class="eyebrow"><span class="n">14</span> Configuração</span>
+    <h2 class="title">O que tem em Ajustes</h2>
+    <div class="card pad">
+      <table>
+        <thead><tr><th>Ajuste</th><th>Para que serve</th></tr></thead>
+        <tbody>
+          <tr><td><b>Leiturista</b></td><td>Seu nome, gravado em cada leitura feita neste aparelho. Preencha no primeiro uso.</td></tr>
+          <tr><td><b>Sincronização</b></td><td>Conectar à nuvem, ver a última sincronização e quantas leituras faltam subir.</td></tr>
+          <tr><td><b>Tarifas</b></td><td>Preço padrão do kWh e do m³. Vale para todo medidor que não tenha tarifa própria.</td></tr>
+          <tr><td><b>Alerta de variação</b></td><td>Percentual que dispara o aviso de leitura estranha. Se a leitura foge muito do histórico, o app pergunta antes de gravar — pega dígito trocado na hora.</td></tr>
+          <tr><td><b>Leitura pela foto</b></td><td>Liga e desliga o reconhecimento do número.</td></tr>
+          <tr><td><b>Aparência</b></td><td>Tema claro, escuro ou seguindo o celular.</td></tr>
+          <tr><td><b>Cópia de segurança</b></td><td>Exporta um arquivo com tudo, para guardar ou levar a outro aparelho.</td></tr>
+          <tr><td><b>Limpar este celular</b></td><td>Libera espaço apagando os dados <b>daqui</b>. O que já subiu continua na nuvem.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout crit" style="margin-top:18px">
+      <span class="ci"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg></span>
+      <span><b>Cópia de segurança não é relatório</b>, e relatório não é cópia de segurança. O backup é um arquivo para o app reler; o relatório é para pessoas lerem. Antes de usar <b>Limpar este celular</b> em modo Local, faça a cópia — sem nuvem, não existe outro lugar guardando esses dados.</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 15 · BOAS PRÁTICAS ============ -->
+<section class="slide" id="s15" data-title="Boas práticas">
+  <div class="deck">
+    <span class="eyebrow"><span class="n">15</span> Campo</span>
+    <h2 class="title">Cinco hábitos que evitam retrabalho</h2>
+    <div class="grid two">
+      <div class="feat"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 2v4M16 2v4M3 10h18M5 6h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/></svg></div><div><h3>Leia sempre no mesmo dia do mês</h3><p>Períodos iguais deixam a comparação honesta. Ler dia 5 num mês e dia 25 no outro cria um pico que não existiu.</p></div></div>
+      <div class="feat"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="13" r="4"/><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/></svg></div><div><h3>Fotografe mesmo digitando</h3><p>A foto é a prova. Numa contestação de cobrança, ela encerra a conversa.</p></div></div>
+      <div class="feat"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></div><div><h3>Não ignore o alerta de variação</h3><p>Quando o app estranha o número, quase sempre há motivo: dígito trocado, medidor errado ou vazamento de verdade.</p></div></div>
+      <div class="feat"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.2-8.5"/><path d="M21 3v6h-6"/></svg></div><div><h3>Confira o “pendentes” ao voltar</h3><p>Em Ajustes, veja se tudo subiu. Zero pendentes é ronda encerrada.</p></div></div>
+      <div class="feat" style="grid-column:1/-1"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div><div><h3>Anote a anomalia na hora</h3><p>Lacre rompido, visor embaçado, relógio trocado, obra no local. O campo de observação viaja junto para o relatório — e é o que explica, meses depois, por que aquele mês foi diferente.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 16 · FAQ ============ -->
+<section class="slide" id="s16" data-title="Perguntas frequentes">
+  <div class="deck">
+    <span class="eyebrow"><span class="n">16</span> Dúvidas</span>
+    <h2 class="title">Perguntas frequentes</h2>
+    <div id="faq" style="margin-top:8px">
+      <div class="qa"><div class="q"><span class="qn">1</span> Perdi o celular. Perdi as leituras?</div><div class="a">Se o app estava <b>sincronizado</b>, não: está tudo na nuvem, basta entrar em outro aparelho. Se estava em <b>Local</b>, só existe o que você tiver exportado na cópia de segurança. É a principal razão para ligar a nuvem.</div></div>
+      <div class="qa"><div class="q"><span class="qn">2</span> O consumo apareceu negativo. O que houve?</div><div class="a">Quase sempre o medidor foi trocado e o relógio novo começou do zero, ou um dígito a mais foi digitado na leitura anterior. Confira as duas últimas leituras no histórico e corrija a que estiver errada.</div></div>
+      <div class="qa"><div class="q"><span class="qn">3</span> O custo do app bate com a conta da concessionária?</div><div class="a">Não exatamente, e não deveria. O app calcula consumo × tarifa. A fatura real tem bandeira tarifária, taxa de disponibilidade, iluminação pública, impostos e, às vezes, período de medição diferente. Serve para acompanhar e ratear — não para conferir a fatura centavo a centavo.</div></div>
+      <div class="qa"><div class="q"><span class="qn">4</span> Dá para dois leituristas trabalharem juntos?</div><div class="a">Dá, com a nuvem ligada nos dois aparelhos e cada um com a sua conta. Cada leitura guarda o nome de quem registrou.</div></div>
+      <div class="qa"><div class="q"><span class="qn">5</span> Esqueci de ler um mês. Estraga tudo?</div><div class="a">Não. O consumo é a diferença entre as duas leituras que existem, então o período seguinte aparece maior porque cobre mais dias. O app mostra a quantidade de dias justamente para isso não confundir. Vale anotar na observação.</div></div>
+      <div class="qa"><div class="q"><span class="qn">6</span> Preciso de internet para trabalhar?</div><div class="a">Só para sincronizar e para o servidor ler relógios de ponteiro. Registrar leitura, fotografar, calcular consumo e gerar relatório funcionam offline.</div></div>
+      <div class="qa"><div class="q"><span class="qn">7</span> Posso apagar um medidor antigo?</div><div class="a">Prefira marcar como <b>inativo</b>: ele some das telas de leitura mas o histórico continua nos relatórios. Excluir só quando o medidor foi cadastrado por engano.</div></div>
+      <div class="qa"><div class="q"><span class="qn">8</span> O app ficou pesado no celular.</div><div class="a">São as fotos. Com a nuvem ligada, use <b>Ajustes → Limpar só este celular</b>: libera o espaço aqui e mantém tudo no servidor. Em modo Local, exporte a cópia de segurança antes.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 17 · QUIZ ============ -->
+<section class="slide" id="s17" data-title="Teste seus conhecimentos">
+  <div class="deck">
+    <span class="eyebrow"><span class="n">17</span> Fixação</span>
+    <h2 class="title">Teste rápido</h2>
+    <p class="lead" style="margin-bottom:22px">Cinco perguntas sobre o que costuma dar errado na prática.</p>
+    <div class="qq">
+      <h3>1. O app sugeriu 1495 na foto, mas você lê 1435 no visor. O que fazer?</h3>
+      <div class="qopt">Aceitar a sugestão — o app erra menos que a gente</div>
+      <div class="qopt" data-ok>Digitar 1435, que é o que a foto mostra</div>
+      <div class="qopt">Tirar outra foto e aceitar o que vier</div>
+    </div>
+    <div class="qq">
+      <h3>2. O selo no alto está escrito “Local”. O que isso significa?</h3>
+      <div class="qopt">Que o app está sem internet neste momento</div>
+      <div class="qopt" data-ok>Que as leituras estão só neste aparelho, sem subir para a nuvem</div>
+      <div class="qopt">Que você está lendo medidores locais, da sua unidade</div>
+    </div>
+    <div class="qq">
+      <h3>3. Você cadastrou um medidor novo e registrou a primeira leitura. Por que o consumo não aparece?</h3>
+      <div class="qopt">Porque falta sincronizar com a nuvem</div>
+      <div class="qopt">Porque a tarifa não foi preenchida</div>
+      <div class="qopt" data-ok>Porque consumo é a diferença entre duas leituras — falta a segunda</div>
+    </div>
+    <div class="qq">
+      <h3>4. Vai gerar o relatório de um lojista que contesta a cobrança. Qual opção não pode faltar?</h3>
+      <div class="qopt" data-ok>Com fotos, para anexar a imagem de cada relógio</div>
+      <div class="qopt">CSV, que é o formato mais completo</div>
+      <div class="qopt">Só os dados, para o arquivo ficar leve</div>
+    </div>
+    <div class="qq">
+      <h3>5. O medidor tem fator 3 e você deixou 1 no cadastro. Qual a consequência?</h3>
+      <div class="qopt">Nenhuma, o fator só afeta a etiqueta QR</div>
+      <div class="qopt">A leitura não é gravada</div>
+      <div class="qopt" data-ok>O consumo e a cobrança saem três vezes menores que o real</div>
+    </div>
+    <div id="qscore">Responda as 5 para ver o resultado.</div>
+  </div>
+</section>
+
+<!-- ============ SUMÁRIO ============ -->
+<div class="toc" id="toc">
+  <button class="tclose" onclick="toggleToc(false)" aria-label="Fechar sumário">✕</button>
+  <h2>Sumário</h2>
+  <div class="tocgrid" id="tocgrid"></div>
+</div>
+
+<div class="controls">
+  <button class="nbtn" id="prev" onclick="go(idx-1)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg> Anterior</button>
+  <button class="nbtn" onclick="toggleToc(true)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg> Sumário</button>
+  <div class="dots" id="dots"></div>
+  <button class="nbtn primary" id="next" onclick="go(idx+1)">Próximo <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
+</div>
+
+<script>
+/* ================= NAVEGAÇÃO ================= */
+const slides = Array.from(document.querySelectorAll('.slide'));
+const N = slides.length;
+let idx = 0;
+const dotsWrap = document.getElementById('dots');
+document.getElementById('tot').textContent = N;
+slides.forEach((_,i)=>{
+  const b = document.createElement('button');
+  b.setAttribute('aria-label','Ir para a página '+(i+1));
+  b.onclick = ()=>go(i);
+  dotsWrap.appendChild(b);
+});
+const dots = Array.from(dotsWrap.children);
+
+function go(n){
+  idx = Math.max(0, Math.min(N-1, n));
+  slides.forEach((s,i)=>s.classList.toggle('on', i===idx));
+  dots.forEach((d,i)=>d.classList.toggle('on', i===idx));
+  document.getElementById('cur').textContent = idx+1;
+  document.getElementById('progress').style.width = (idx/(N-1)*100)+'%';
+  document.getElementById('prev').disabled = idx===0;
+  document.getElementById('next').disabled = idx===N-1;
+  document.body.classList.toggle('capa', idx===0);
+  window.scrollTo({top:0, behavior:'auto'});
+}
+
+/* ================= SUMÁRIO ================= */
+const tocgrid = document.getElementById('tocgrid');
+slides.forEach((s,i)=>{
+  const b = document.createElement('button');
+  b.innerHTML = '<i>'+String(i+1).padStart(2,'0')+'</i> '+(s.dataset.title||('Página '+(i+1)));
+  b.onclick = ()=>{ toggleToc(false); go(i); };
+  tocgrid.appendChild(b);
+});
+function toggleToc(open){ document.getElementById('toc').classList.toggle('open', open); }
+
+/* ================= TECLADO E TOQUE ================= */
+document.addEventListener('keydown', e=>{
+  if(document.getElementById('toc').classList.contains('open')){
+    if(e.key==='Escape') toggleToc(false);
+    return;
+  }
+  if(e.key==='ArrowRight'||e.key==='PageDown'){ e.preventDefault(); go(idx+1); }
+  else if(e.key==='ArrowLeft'||e.key==='PageUp'){ e.preventDefault(); go(idx-1); }
+  else if(e.key==='Home'){ e.preventDefault(); go(0); }
+  else if(e.key==='End'){ e.preventDefault(); go(N-1); }
+});
+
+let tx=0;
+document.addEventListener('touchstart', e=>{ tx = e.changedTouches[0].clientX; }, {passive:true});
+document.addEventListener('touchend', e=>{
+  if(e.target.closest('.toc,.quiz,#faq,.qq')) return;
+  const dx = e.changedTouches[0].clientX - tx;
+  if(Math.abs(dx)>60){ dx<0 ? go(idx+1) : go(idx-1); }
+}, {passive:true});
+
+/* ================= TEMA ================= */
+const root = document.documentElement;
+document.getElementById('themeBtn').onclick = ()=>{
+  const atual = root.getAttribute('data-theme');
+  const escuro = atual ? atual==='dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+  root.setAttribute('data-theme', escuro ? 'light' : 'dark');
+};
+
+/* ================= FAQ ================= */
+document.querySelectorAll('#faq .qa').forEach(qa=>{
+  qa.addEventListener('click', ()=> qa.classList.toggle('open'));
+});
+
+/* ================= QUIZ ================= */
+const qTotal = document.querySelectorAll('.qq').length;
+let qDone = 0, qHits = 0;
+document.querySelectorAll('.qq').forEach(qq=>{
+  qq.querySelectorAll('.qopt').forEach(op=> op.addEventListener('click', ()=>{
+    if(qq.classList.contains('answered')) return;
+    qq.classList.add('answered');
+    const certo = op.hasAttribute('data-ok');
+    qq.querySelectorAll('.qopt').forEach(o=>{ if(o.hasAttribute('data-ok')) o.classList.add('certo'); });
+    if(!certo) op.classList.add('errado'); else qHits++;
+    qDone++;
+    const sc = document.getElementById('qscore');
+    if(qDone===qTotal){
+      sc.innerHTML = qHits===qTotal
+        ? '🏆 <b>'+qHits+' de '+qTotal+'!</b> Pode sair para a ronda.'
+        : '✅ Você acertou <b>'+qHits+' de '+qTotal+'</b>. Vale reler os capítulos das que errou.';
+    } else {
+      sc.textContent = qDone+' de '+qTotal+' respondidas…';
+    }
+  }));
+});
+
+go(0);
+</script>
