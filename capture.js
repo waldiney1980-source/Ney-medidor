@@ -10,14 +10,16 @@ import { lerLocal } from './ocr-local.js';
 import { icon, toast, typeColor, openSheet } from './ui.js';
 import { scanCode, scannerSupported } from './scanner.js';
 import {
-  el, esc, fmtAuto, fmtDate, todayISO, parseNum, compressImage, daysBetween,
+  el, esc, fmtAuto, fmtDate, todayISO, parseNum, compressImageMulti, daysBetween,
 } from './utils.js';
 
-/* Duas reduções da mesma foto. A de cima só existe em memória, para o
-   reconhecimento acertar mais; a de baixo é a que vai para o aparelho e para a
-   nuvem. Com centenas de pontos lidos todo mês, cada dezena de KB por foto
-   decide quantos meses o plano gratuito aguenta. */
-const OCR_LADO = 1280, OCR_QUALIDADE = 0.72;
+/* Duas reduções da mesma foto. A de cima só existe em memória e é a que vai
+   para o reconhecimento; a de baixo é a que fica guardada no aparelho e na
+   nuvem — com centenas de pontos lidos por mês, cada dezena de KB por foto
+   decide quantos meses o plano gratuito aguenta.
+   A qualidade do reconhecimento fica no valor histórico (0,62): subir isso
+   engorda o que sobe para o servidor e é sentido como lentidão no campo. */
+const OCR_LADO = 1280, OCR_QUALIDADE = 0.62;
 const GUARDA_LADO = 1000, GUARDA_QUALIDADE = 0.45;
 
 /**
@@ -436,10 +438,12 @@ export default async function capture({ params, navigate }) {
       const f = fileInput.files && fileInput.files[0];
       if (!f) return;
       try {
-        /* Duas reduções a partir do original: a maior alimenta o
+        /* Uma decodificação só, duas reduções: a maior alimenta o
            reconhecimento agora, a menor é a que fica gravada. */
-        photoOcr = await compressImage(f, OCR_LADO, OCR_QUALIDADE);
-        photoData = await compressImage(f, GUARDA_LADO, GUARDA_QUALIDADE);
+        [photoOcr, photoData] = await compressImageMulti(f, [
+          { maxSide: OCR_LADO, quality: OCR_QUALIDADE },
+          { maxSide: GUARDA_LADO, quality: GUARDA_QUALIDADE },
+        ]);
         photoPreview = photoData;
         ocr = { status: 'idle' };
         renderForm();
