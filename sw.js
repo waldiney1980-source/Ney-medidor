@@ -17,6 +17,7 @@ const SHELL = [
   './db.js',
   './gestao.js',
   './history.js',
+  './importar.js',
   './meter-detail.js',
   './meters.js',
   './ocr-local.js',

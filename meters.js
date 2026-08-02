@@ -7,7 +7,8 @@ import {
 import { icon, toast, openSheet, confirmSheet, typeColor } from './ui.js';
 import { qrSVG } from './qr.js';
 import { openExportSheet } from './report.js';
-import { el, esc, fmtAuto, fmtDate, parseNum, uid, todayISO } from './utils.js';
+import { lerPlanilha, interpretar, aplicar, planilhaModelo } from './importar.js';
+import { el, esc, fmtAuto, fmtDate, parseNum, uid, todayISO, downloadFile } from './utils.js';
 import { SEGMENTS, segmentLabel, linksResumo } from './gestao.js';
 
 /* ---------------- formulário de medidor ---------------- */
@@ -378,6 +379,110 @@ export function printLabels(meters) {
   setTimeout(cleanup, 60000);
 }
 
+/* ---------------- importação em massa ---------------- */
+
+/**
+ * Carga de pontos de medição por planilha. Mostra o resumo do que vai acontecer
+ * antes de gravar — importação sem conferência vira faxina depois.
+ */
+export function importSheet(onDone) {
+  let itens = [];
+
+  const resumoHtml = () => {
+    const novos = itens.filter((i) => i.acao === 'novo');
+    const atualiza = itens.filter((i) => i.acao === 'atualizar');
+    const ignora = itens.filter((i) => i.acao === 'ignorar');
+    const unidades = new Set(itens.filter((i) => i.criaUnidade && i.acao !== 'ignorar').map((i) => i.siteNome));
+    const avisos = itens.filter((i) => i.erros.length);
+
+    return `<div class="stack" style="gap:10px">
+      <div class="alert alert--info">${icon('info', 18)}<span>
+        <b>${novos.length}</b> medidor(es) novo(s) · <b>${atualiza.length}</b> a atualizar${ignora.length ? ` · <b>${ignora.length}</b> ignorado(s)` : ''}
+        ${unidades.size ? `<br>Serão criadas <b>${unidades.size}</b> unidade(s): ${esc([...unidades].join(', '))}` : ''}
+      </span></div>
+      ${avisos.length ? `<div class="alert alert--warn">${icon('alert', 18)}<span>
+        <b>${avisos.length}</b> linha(s) com ressalva:<br>
+        ${avisos.slice(0, 6).map((a) => `linha ${a.linha}: ${esc(a.erros.join('; '))}`).join('<br>')}
+        ${avisos.length > 6 ? `<br>… e mais ${avisos.length - 6}.` : ''}
+      </span></div>` : ''}
+    </div>`;
+  };
+
+  openSheet({
+    title: 'Importar pontos de medição',
+    sub: 'Carga em massa por planilha',
+    body: `<div class="stack">
+      <div class="field">
+        <label>1 · Monte a planilha</label>
+        <span class="hint">Uma linha por medidor. A primeira linha são os títulos das colunas.
+        Obrigatório só <b>Nome</b>; o resto é opcional. Colunas aceitas: Nome, Tipo, Código,
+        Unidade, Local, Fator, Dígitos, Tarifa, Situação e Observação.</span>
+        <button class="btn btn--sm" id="imp-modelo" style="margin-top:10px">${icon('download', 16)} Baixar modelo (.xlsx)</button>
+      </div>
+      <div class="field">
+        <label for="imp-file">2 · Envie o arquivo</label>
+        <input class="input" type="file" id="imp-file" accept=".xlsx,.csv,.txt">
+        <span class="hint">Aceita <b>.xlsx</b> e <b>.csv</b>. No Excel: Arquivo → Salvar como → Pasta de Trabalho do Excel (.xlsx).</span>
+      </div>
+      <div id="imp-resumo"></div>
+    </div>`,
+    actions: `<button class="btn" data-close>Cancelar</button>
+      <button class="btn btn--primary" data-act="go" disabled>Importar</button>`,
+    onMount(sheet, close) {
+      const box = sheet.querySelector('#imp-resumo');
+      const botao = sheet.querySelector('[data-act="go"]');
+
+      sheet.querySelector('#imp-modelo').onclick = () => {
+        downloadFile('modelo-pontos-de-medicao.xlsx', planilhaModelo());
+      };
+
+      sheet.querySelector('#imp-file').onchange = async (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        botao.disabled = true;
+        box.innerHTML = `<div class="alert alert--info"><span class="spinner"></span><span>Lendo a planilha…</span></div>`;
+        try {
+          const linhas = await lerPlanilha(file);
+          const lido = interpretar(linhas);
+          if (lido.semCabecalho) {
+            box.innerHTML = `<div class="alert alert--critical">${icon('alert', 18)}<span>
+              Não encontrei a coluna <b>Nome</b> na primeira linha. Confira se os títulos estão na
+              linha 1 da planilha — baixe o modelo para comparar.</span></div>`;
+            return;
+          }
+          itens = lido.itens;
+          if (!itens.length) {
+            box.innerHTML = `<div class="alert alert--warn">${icon('alert', 18)}<span>A planilha não tem nenhuma linha preenchida além do cabeçalho.</span></div>`;
+            return;
+          }
+          box.innerHTML = resumoHtml();
+          botao.disabled = false;
+        } catch (err) {
+          box.innerHTML = `<div class="alert alert--critical">${icon('alert', 18)}<span>${esc(err.message || 'Não consegui ler o arquivo.')}</span></div>`;
+        }
+      };
+
+      botao.onclick = async () => {
+        botao.disabled = true;
+        box.innerHTML = `<div class="alert alert--info"><span class="spinner"></span><span>Gravando…</span></div>`;
+        try {
+          const r = await aplicar(itens);
+          close();
+          const partes = [];
+          if (r.novos) partes.push(`${r.novos} medidor(es) novo(s)`);
+          if (r.atualizados) partes.push(`${r.atualizados} atualizado(s)`);
+          if (r.unidades) partes.push(`${r.unidades} unidade(s) criada(s)`);
+          toast(`Importação concluída — ${partes.join(', ')}.`, 'ok', 5000);
+          if (onDone) onDone();
+        } catch (err) {
+          box.innerHTML = `<div class="alert alert--critical">${icon('alert', 18)}<span>${esc(err.message || 'Falha ao gravar.')}</span></div>`;
+          botao.disabled = false;
+        }
+      };
+    },
+  });
+}
+
 /* ---------------- view ---------------- */
 
 export default async function meters({ navigate }) {
@@ -403,6 +508,7 @@ export default async function meters({ navigate }) {
         <button class="chip" data-t="agua" ${type === 'agua' ? 'data-active="true"' : ''}>${icon('drop', 15)} Água</button>
         <button class="chip" id="sites">${icon('filter', 15)} Unidades (${sites.length})</button>
         <button class="chip" id="labels">${icon('print', 15)} Etiquetas QR</button>
+        <button class="chip" id="import">${icon('plus', 15)} Importar planilha</button>
         <button class="chip" id="export-all">${icon('download', 15)} Exportar todos</button>
       </div>
     </div>`);
@@ -464,6 +570,7 @@ export default async function meters({ navigate }) {
     head.querySelectorAll('[data-t]').forEach((b) => b.onclick = () => { type = b.dataset.t; paint(); });
     head.querySelector('#add').onclick = () => meterFormSheet(null, paint);
     head.querySelector('#sites').onclick = () => sitesSheet(paint);
+    head.querySelector('#import').onclick = () => importSheet(paint);
     head.querySelector('#labels').onclick = () => printLabels(
       activeMeters().filter((m) => type === 'all' || m.type === type)
     );
