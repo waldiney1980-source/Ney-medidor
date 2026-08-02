@@ -1,10 +1,15 @@
 // Leitor de QR Code / código de barras da etiqueta do medidor.
-// Usa a Barcode Detection API quando disponível; senão, oferece digitação manual.
+//
+// Usa a Barcode Detection API quando o navegador tem (Chrome no Android) e cai
+// no leitor próprio (qr-decode.js) quando não tem — que é o caso do Safari, ou
+// seja, de todo iPhone. Sem esse segundo caminho, o botão de QR não abria a
+// câmera no iPhone e sobrava digitar o código na mão.
 
 import { icon, toast } from './ui.js';
+import { decodificar } from './qr-decode.js';
 
-export const scannerSupported = () =>
-  'BarcodeDetector' in window && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+/** Basta ter câmera: sem a API do navegador, a leitura é feita aqui mesmo. */
+export const scannerSupported = () => !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
 
 export const cameraSupported = () => !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
 
@@ -31,11 +36,12 @@ export async function scanCode() {
   document.body.appendChild(overlay);
 
   const video = overlay.querySelector('video');
-  let stream = null, raf = 0, done = false;
+  let stream = null, raf = 0, timer = 0, done = false;
 
   const cleanup = () => {
     done = true;
     cancelAnimationFrame(raf);
+    clearTimeout(timer);
     if (stream) stream.getTracks().forEach((t) => t.stop());
     overlay.remove();
   };
@@ -66,22 +72,49 @@ export async function scanCode() {
       btn.onclick = () => { on = !on; track.applyConstraints({ advanced: [{ torch: on }] }).catch(() => {}); };
     }
 
-    const detector = new window.BarcodeDetector({
-      formats: ['qr_code', 'code_128', 'code_39', 'ean_13', 'data_matrix'],
-    });
-
-    const tick = async () => {
-      if (done) return;
-      try {
-        const codes = await detector.detect(video);
-        if (codes && codes.length) {
-          if (navigator.vibrate) navigator.vibrate(35);
-          finish(String(codes[0].rawValue || '').trim());
-          return;
-        }
-      } catch { /* frame inválido — segue para o próximo */ }
-      raf = requestAnimationFrame(tick);
+    const achou = (valor) => {
+      if (navigator.vibrate) navigator.vibrate(35);
+      finish(String(valor || '').trim());
     };
-    raf = requestAnimationFrame(tick);
+
+    if ('BarcodeDetector' in window) {
+      const detector = new window.BarcodeDetector({
+        formats: ['qr_code', 'code_128', 'code_39', 'ean_13', 'data_matrix'],
+      });
+      const tick = async () => {
+        if (done) return;
+        try {
+          const codes = await detector.detect(video);
+          if (codes && codes.length) { achou(codes[0].rawValue); return; }
+        } catch { /* quadro inválido — segue para o próximo */ }
+        raf = requestAnimationFrame(tick);
+      };
+      raf = requestAnimationFrame(tick);
+      return;
+    }
+
+    /* Leitor próprio. Reduz o quadro para no máximo 640px no lado maior: acima
+       disso o custo cresce sem melhorar a leitura, e o objetivo é sobrar tempo
+       de processador para a prévia da câmera não travar na mão do leiturista. */
+    const lona = document.createElement('canvas');
+    const ctx = lona.getContext('2d', { willReadFrequently: true });
+
+    const tickProprio = () => {
+      if (done) return;
+      const vw = video.videoWidth, vh = video.videoHeight;
+      if (vw && vh) {
+        const escala = Math.min(1, 640 / Math.max(vw, vh));
+        lona.width = Math.round(vw * escala);
+        lona.height = Math.round(vh * escala);
+        ctx.drawImage(video, 0, 0, lona.width, lona.height);
+        try {
+          const texto = decodificar(ctx.getImageData(0, 0, lona.width, lona.height));
+          if (texto) { achou(texto); return; }
+        } catch { /* quadro ruim — tenta o próximo */ }
+      }
+      // intervalo em vez de quadro a quadro: a decodificação é pesada
+      timer = setTimeout(tickProprio, 130);
+    };
+    timer = setTimeout(tickProprio, 250);
   });
 }

@@ -362,3 +362,13 @@ export function qrSVG(text, { size = 160, dark = '#0b0b0b', light = '#ffffff', q
     <path d="${path}" fill="${dark}"/>
   </svg>`;
 }
+
+/* ---------------- reaproveitado pelo leitor ---------------- */
+
+/* O decodificador (qr-decode.js) precisa das mesmas tabelas e do mesmo mapa de
+   módulos reservados que a geração usa. Exportar daqui evita manter duas
+   versões que podem divergir em silêncio. */
+export {
+  gexp, glog, RS_BLOCKS_M, ALIGN, MASK_FN,
+  blankMatrix, placeStatic, reserveFormat,
+};
