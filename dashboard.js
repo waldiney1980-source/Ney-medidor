@@ -283,13 +283,19 @@ export default async function dashboard({ navigate }) {
           de economia do relatório gerencial), o <b>WhatsApp do proprietário</b> e os <b>limites do mês</b>.
           Sem ela, o app não tem para quem mandar o aviso de estouro.</span>
           <button class="btn btn--primary btn--block" id="cad-unidade">
-            ${icon('plus', 18)} ${soltos.length ? 'Cadastrar unidade e incluir os medidores' : 'Completar o cadastro da unidade'}
+            ${icon(soltos.length ? 'list' : 'plus', 18)} ${soltos.length ? 'Escolher a unidade dos medidores' : 'Completar o cadastro da unidade'}
           </button>
         </div>
       </section>`);
+      /* Com medidores soltos, abre a lista de unidades: quase sempre a unidade
+         certa já existe e o que falta é vincular. Levar direto ao formulário de
+         nova unidade obrigava a cadastrar de novo o que já estava lá — e ainda
+         gerava unidade duplicada. A lista traz "Nova unidade" para quem
+         realmente precisa criar. */
       aviso.querySelector('#cad-unidade').onclick = async () => {
-        const { siteFormSheet } = await import('./meters.js');
-        siteFormSheet(soltos.length ? null : semDono[0], paint);
+        const { sitesSheet, siteFormSheet } = await import('./meters.js');
+        if (soltos.length) sitesSheet(paint);
+        else siteFormSheet(semDono[0], paint);
       };
       root.appendChild(aviso);
     }

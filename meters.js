@@ -277,7 +277,7 @@ export function siteFormSheet(site, onSaved) {
   });
 }
 
-function sitesSheet(onSaved) {
+export function sitesSheet(onSaved) {
   const paint = (sheet) => {
     const list = sheet.querySelector('#site-list');
     const sites = activeSites();
