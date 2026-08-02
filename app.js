@@ -172,6 +172,7 @@ async function main() {
 
   requestPersistence();
   startAutoSync();
+  medirTopbar();
 
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
     navigator.serviceWorker.register('./sw.js').then((reg) => {
@@ -187,6 +188,26 @@ async function main() {
        está usando. */
     navigator.serviceWorker.addEventListener('controllerchange', avisoDeVersaoNova);
   }
+}
+
+/**
+ * Publica a altura da barra superior em --topbar-h.
+ *
+ * A barra de filtros gruda logo abaixo dela, e essa altura muda com o aparelho:
+ * o recorte da tela do iPhone entra na conta. Medir é mais seguro do que chutar
+ * um valor fixo que ficaria errado em metade dos celulares.
+ */
+function medirTopbar() {
+  const barra = document.querySelector('.topbar');
+  if (!barra) return;
+  const aplicar = () => {
+    const h = Math.round(barra.getBoundingClientRect().height);
+    if (h) document.documentElement.style.setProperty('--topbar-h', `${h}px`);
+  };
+  aplicar();
+  window.addEventListener('resize', aplicar);
+  window.addEventListener('orientationchange', () => setTimeout(aplicar, 200));
+  if (window.ResizeObserver) new ResizeObserver(aplicar).observe(barra);
 }
 
 /** Faixa discreta no rodapé: nova versão baixada, esperando um toque. */

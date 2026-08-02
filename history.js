@@ -51,7 +51,7 @@ export default async function history({ navigate }) {
         </div>
         <button class="btn" id="csv" style="flex:none;width:52px;padding:0" aria-label="Exportar CSV">${icon('download', 21)}</button>
       </div>
-      <div class="filters">
+      <div class="filters filters--fixas">
         <button class="chip" id="period" data-active="true">${icon('clock', 15)} ${esc(fmtDateShort(f.from))} – ${esc(fmtDateShort(f.to))}</button>
         <button class="chip" data-t="all" ${f.type === 'all' ? 'data-active="true"' : ''}>Todos</button>
         <button class="chip" data-t="energia" ${f.type === 'energia' ? 'data-active="true"' : ''}>${icon('bolt', 15)} Energia</button>

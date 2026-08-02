@@ -142,13 +142,17 @@ export default async function dashboard({ navigate }) {
     /* --- barra de filtros --- */
     const sites = activeSites();
     const metersForPick = activeMeters().filter((m) => f.type === 'all' || m.type === f.type);
-    const bar = el(`<div class="filters">
+    /* Ordem pensada para tela de celular: só cabem uns quatro chips, e os
+       demais ficam escondidos à direita. Período, unidade e medidor vêm
+       primeiro porque são os que se troca o tempo todo; o tipo fica por último,
+       já que o painel separa energia e água em seções de qualquer forma. */
+    const bar = el(`<div class="filters filters--fixas">
       <button class="chip" data-f="period" data-active="true">${icon('clock', 15)} ${esc(periodLabel())}</button>
+      ${sites.length ? `<button class="chip" data-f="site" ${f.siteId !== 'all' ? 'data-active="true"' : ''}>${icon('filter', 15)} ${esc(f.siteId === 'all' ? 'Unidade' : (sites.find((s) => s.id === f.siteId) || {}).name || 'Unidade')}</button>` : ''}
+      <button class="chip" data-f="meter" ${f.meterId !== 'all' ? 'data-active="true"' : ''}>${icon('gauge', 15)} ${esc(f.meterId === 'all' ? 'Medidor' : (meterById(f.meterId) || {}).name || 'Medidor')}</button>
       <button class="chip" data-t="all" ${f.type === 'all' ? 'data-active="true"' : ''}>Todos</button>
       <button class="chip" data-t="energia" ${f.type === 'energia' ? 'data-active="true"' : ''}>${icon('bolt', 15)} Energia</button>
       <button class="chip" data-t="agua" ${f.type === 'agua' ? 'data-active="true"' : ''}>${icon('drop', 15)} Água</button>
-      ${sites.length ? `<button class="chip" data-f="site" ${f.siteId !== 'all' ? 'data-active="true"' : ''}>${icon('filter', 15)} ${esc(f.siteId === 'all' ? 'Unidade' : (sites.find((s) => s.id === f.siteId) || {}).name || 'Unidade')}</button>` : ''}
-      <button class="chip" data-f="meter" ${f.meterId !== 'all' ? 'data-active="true"' : ''}>${icon('gauge', 15)} ${esc(f.meterId === 'all' ? 'Medidor' : (meterById(f.meterId) || {}).name || 'Medidor')}</button>
     </div>`);
     root.appendChild(bar);
 
@@ -257,9 +261,13 @@ export default async function dashboard({ navigate }) {
     }
 
     /* --- medidores sem unidade: sem isso não há sugestão nem aviso --- */
-    const soltos = activeMeters().filter((m) => !m.siteId);
-    const semDono = activeSites().filter((s) => !s.ownerPhone && !s.ownerEmail
-      && activeMeters().some((m) => m.siteId === s.id));
+    /* Respeita o filtro: com uma unidade escolhida, cobrar cadastro das outras
+       é ruído — a tela toda está falando de uma unidade só. */
+    const soltos = f.siteId === 'all' ? activeMeters().filter((m) => !m.siteId) : [];
+    const semDono = activeSites()
+      .filter((s) => f.siteId === 'all' || s.id === f.siteId)
+      .filter((s) => !s.ownerPhone && !s.ownerEmail
+        && activeMeters().some((m) => m.siteId === s.id));
 
     if (soltos.length || semDono.length) {
       const falta = soltos.length
@@ -365,7 +373,7 @@ export default async function dashboard({ navigate }) {
     }
 
     /* --- últimas leituras --- */
-    const recent = recentReadings(6);
+    const recent = recentReadings(6, f);
     if (recent.length) {
       const card = el(`<section class="card">
         <div class="card__head"><div class="grow"><h2>Últimas leituras</h2></div></div>

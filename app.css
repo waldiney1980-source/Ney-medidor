@@ -374,6 +374,19 @@ textarea.input { height: auto; padding: 11px 13px; min-height: 76px; resize: ver
   scrollbar-width: none;
 }
 .filters::-webkit-scrollbar { display: none; }
+
+/* Barra que acompanha a rolagem. Os gráficos e as listas ficam bem abaixo do
+   topo: sem isso, é preciso voltar ao começo da página só para trocar o
+   período ou o medidor, e depois rolar tudo de novo para ver o efeito. */
+.filters--fixas {
+  position: sticky; top: var(--topbar-h, 62px); z-index: 15;
+  margin-inline: -16px; padding-inline: 16px;
+  padding-top: 8px;
+  background: color-mix(in srgb, var(--page) 92%, transparent);
+  backdrop-filter: saturate(1.4) blur(12px);
+  -webkit-backdrop-filter: saturate(1.4) blur(12px);
+  border-bottom: 1px solid var(--border);
+}
 .chip {
   flex: none; height: 34px; padding: 0 13px;
   border-radius: 999px; border: 1px solid var(--border);

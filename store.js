@@ -513,9 +513,24 @@ export function pendingMeters(filters) {
     .sort((a, b) => (a.lastAt || '') > (b.lastAt || '') ? 1 : -1);
 }
 
-export function recentReadings(limit = 12) {
-  return state.readings
-    .filter((r) => !r.deleted)
+/**
+ * Últimas leituras registradas.
+ *
+ * Aceita os mesmos filtros do painel: sem isso, escolher uma unidade mudava os
+ * gráficos mas a lista continuava mostrando leitura de qualquer medidor — o que
+ * faz parecer que o filtro não pegou.
+ *
+ * O recorte é por medidor, não por período: o cartão é "as últimas", e limitá-lo
+ * também ao intervalo o deixaria vazio sempre que o período escolhido não
+ * tivesse leitura nenhuma.
+ */
+export function recentReadings(limit = 12, filtros = null) {
+  let leituras = state.readings.filter((r) => !r.deleted);
+  if (filtros) {
+    const permitidos = new Set(filterMeters(filtros).map((m) => m.id));
+    leituras = leituras.filter((r) => permitidos.has(r.meterId));
+  }
+  return leituras
     .sort((a, b) => b.createdAt - a.createdAt)
     .slice(0, limit);
 }

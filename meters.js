@@ -595,7 +595,7 @@ export default async function meters({ navigate }) {
         </div>
         <button class="btn btn--primary" id="add" style="flex:none;width:52px;padding:0" aria-label="Novo medidor">${icon('plus', 22)}</button>
       </div>
-      <div class="filters">
+      <div class="filters filters--fixas">
         <button class="chip" data-t="all" ${type === 'all' ? 'data-active="true"' : ''}>Todos</button>
         <button class="chip" data-t="energia" ${type === 'energia' ? 'data-active="true"' : ''}>${icon('bolt', 15)} Energia</button>
         <button class="chip" data-t="agua" ${type === 'agua' ? 'data-active="true"' : ''}>${icon('drop', 15)} Água</button>
