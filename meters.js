@@ -344,12 +344,13 @@ function baseDoApp() {
 /**
  * O que o QR da etiqueta carrega: um link que abre o app já no medidor.
  *
- * Vai o **código** do medidor, não o id interno. Sem sincronização na nuvem
- * cada aparelho gera ids próprios, então uma etiqueta impressa no computador
- * não seria reconhecida pelo celular. O código é o mesmo em todo lugar.
- * Só cai para o id quando o medidor não tem código cadastrado.
+ * A ordem é código → nome → id, e existe por um motivo prático. O id é interno
+ * e cada aparelho gera o seu: sem sincronização na nuvem, etiqueta impressa num
+ * lugar não é reconhecida no outro. Código e nome vêm do cadastro e são iguais
+ * em todo aparelho — e planilha de carga costuma trazer o nome mesmo quando não
+ * traz o código.
  */
-export const linkDoMedidor = (m) => `${baseDoApp()}#/medidor/${encodeURIComponent(m.code || m.id)}`;
+export const linkDoMedidor = (m) => `${baseDoApp()}#/medidor/${encodeURIComponent(m.code || m.name || m.id)}`;
 
 export function printLabels(meters) {
   if (!meters.length) {

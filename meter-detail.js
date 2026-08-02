@@ -1,7 +1,7 @@
 // Histórico completo de um medidor: evolução, consumo mensal e leituras.
 
 import {
-  meterById, meterByCode, readingsOf, consumptionEvents, lastReading, siteName,
+  state, meterById, meterByCode, activeMeters, readingsOf, consumptionEvents, lastReading, siteName,
   deleteReading, saveReading, meterTariff, TYPES,
   dailyConsumption, weekdayAverage, averageForRange,
 } from './store.js';
@@ -64,16 +64,32 @@ async function showPhoto(photoId, meter, reading, onApplied) {
 }
 
 export default async function meterDetail({ params, navigate }) {
-  /* O QR da etiqueta traz o código do medidor; a navegação interna traz o id.
-     Aceitar os dois é o que faz a etiqueta valer em qualquer aparelho. */
+  /* A navegação interna traz o id; o QR da etiqueta traz o código, ou o nome
+     quando o medidor não tem código. Aceitar as três formas é o que faz a
+     etiqueta valer em qualquer aparelho, não só no que a imprimiu. */
   const alvo = decodeURIComponent(params[0] || '');
-  const meter = meterById(alvo) || meterByCode(alvo);
+  const mesmoTexto = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+  const meter = meterById(alvo)
+    || meterByCode(alvo)
+    || activeMeters().find((m) => mesmoTexto(m.name, alvo));
   const root = el('<div class="stack"></div>');
 
   if (!meter || meter.deleted) {
-    root.innerHTML = `<div class="empty"><b>Medidor não encontrado</b>
-      <p>Nenhum medidor com o código ou identificador <b>${esc(alvo)}</b> neste aparelho.
-      Se a etiqueta foi feita em outro celular, ligue a sincronização na nuvem para os dois enxergarem o mesmo cadastro.</p></div>`;
+    /* Quase sempre não é etiqueta errada: é aparelho sem o cadastro. Em modo
+       Local o celular não tem medidor nenhum, então a etiqueta lida aqui não
+       acha nada. Vale mais oferecer a saída do que só informar a falha. */
+    const semNuvem = !state.settings.syncEnabled;
+    const total = activeMeters().length;
+    root.innerHTML = `<div class="empty">
+      <b>Medidor não encontrado</b>
+      <p>Nada com <b>${esc(alvo)}</b> neste aparelho${total ? ` (há ${total} medidor(es) cadastrado(s) aqui)` : ', que ainda está sem nenhum medidor cadastrado'}.</p>
+      ${semNuvem ? `<p>Este celular está em <b>modo Local</b>: ele não enxerga o cadastro dos outros aparelhos.
+        Entre na nuvem para baixar os medidores da equipe.</p>
+        <button class="btn btn--primary btn--sm" id="ir-nuvem">Entrar na nuvem</button>`
+      : '<p>Se a etiqueta foi impressa em outro aparelho, sincronize os dois para verem o mesmo cadastro.</p>'}
+    </div>`;
+    const botao = root.querySelector('#ir-nuvem');
+    if (botao) botao.onclick = () => navigate('ajustes');
     return { el: root, title: 'Medidor' };
   }
 

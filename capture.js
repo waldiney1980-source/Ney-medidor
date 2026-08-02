@@ -13,6 +13,13 @@ import {
   el, esc, fmtAuto, fmtDate, todayISO, parseNum, compressImage, daysBetween,
 } from './utils.js';
 
+/* Duas reduções da mesma foto. A de cima só existe em memória, para o
+   reconhecimento acertar mais; a de baixo é a que vai para o aparelho e para a
+   nuvem. Com centenas de pontos lidos todo mês, cada dezena de KB por foto
+   decide quantos meses o plano gratuito aguenta. */
+const OCR_LADO = 1280, OCR_QUALIDADE = 0.72;
+const GUARDA_LADO = 1000, GUARDA_QUALIDADE = 0.45;
+
 /**
  * Resolve o que veio do QR ou do campo de código.
  * Aceita o link novo da etiqueta (…#/medidor/<id>), o id cru e o código do
@@ -41,6 +48,10 @@ export default async function capture({ params, navigate }) {
   let note = editing ? editing.note || '' : '';
   let photoData = undefined;      // undefined = inalterada, null = remover, string = nova
   let photoPreview = null;
+  /* Cópia em qualidade maior, só para o reconhecimento desta sessão: ela não é
+     gravada. O que fica guardado é a versão menor, para não estourar o espaço
+     do aparelho e do plano da nuvem. */
+  let photoOcr = null;
   let keyHandler = null;
 
   const unbindKeys = () => {
@@ -146,9 +157,13 @@ export default async function capture({ params, navigate }) {
     ocr = { status: 'running' };
     paintOcr();
 
+    /* Foto recém-tirada: usa a cópia boa. Foto vinda do histórico ou da nuvem:
+       só existe a versão guardada, e é com ela mesmo que se trabalha. */
+    const imagem = photoOcr || photoPreview;
+
     // 1) leitura no próprio aparelho — instantânea e funciona sem internet
     let local = null;
-    try { local = await lerLocal(photoPreview, { digits: meter.digits }); } catch { /* segue sem ela */ }
+    try { local = await lerLocal(imagem, { digits: meter.digits }); } catch { /* segue sem ela */ }
     if (local && local.legible) {
       ocr = { status: 'ok', value: local.value, confidence: local.confidence, origem: 'local' };
       paintOcr();
@@ -157,7 +172,7 @@ export default async function capture({ params, navigate }) {
     // 2) o servidor confere, quando houver sinal — ele lê também relógio de rodinhas
     try {
       const res = await readMeterPhoto({
-        image: photoPreview,
+        image: imagem,
         type: meter.type,
         digits: meter.digits,
       });
@@ -413,7 +428,7 @@ export default async function capture({ params, navigate }) {
     const fileInput = node.querySelector('#file');
     node.querySelector('#photo').onclick = (e) => {
       if (e.target.closest('#clearPhoto')) {
-        photoData = null; photoPreview = null; ocr = { status: 'idle' }; renderForm(); return;
+        photoData = null; photoPreview = null; photoOcr = null; ocr = { status: 'idle' }; renderForm(); return;
       }
       fileInput.click();
     };
@@ -421,7 +436,10 @@ export default async function capture({ params, navigate }) {
       const f = fileInput.files && fileInput.files[0];
       if (!f) return;
       try {
-        photoData = await compressImage(f);
+        /* Duas reduções a partir do original: a maior alimenta o
+           reconhecimento agora, a menor é a que fica gravada. */
+        photoOcr = await compressImage(f, OCR_LADO, OCR_QUALIDADE);
+        photoData = await compressImage(f, GUARDA_LADO, GUARDA_QUALIDADE);
         photoPreview = photoData;
         ocr = { status: 'idle' };
         renderForm();
