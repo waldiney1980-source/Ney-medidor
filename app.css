@@ -557,14 +557,20 @@ textarea.input { height: auto; padding: 11px 13px; min-height: 76px; resize: ver
 }
 @media (min-width: 720px) { .sheet-backdrop { align-items: center; justify-items: center; } }
 @keyframes fade { from { opacity: 0 } }
+/* Só o miolo rola; título e botões ficam parados. Com uma lista longa — as
+   etiquetas de centenas de medidores, por exemplo — a folha inteira rolando
+   empurrava o botão de confirmar para baixo do alcance. */
 .sheet {
   background: var(--surface); width: 100%;
   border-radius: var(--r-xl) var(--r-xl) 0 0;
   padding: 6px 16px calc(var(--safe-b) + 18px);
-  max-height: 92vh; overflow-y: auto;
+  max-height: 92vh; overflow: hidden;
+  display: flex; flex-direction: column;
   box-shadow: var(--shadow-3);
   animation: rise .22s cubic-bezier(.2,.9,.3,1);
 }
+.sheet__content { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.sheet__grab, .sheet h2, .sheet > p, .sheet__actions { flex: none; }
 @media (min-width: 720px) {
   .sheet { max-width: 520px; border-radius: var(--r-xl); padding-bottom: 20px; }
 }
