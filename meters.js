@@ -1,12 +1,13 @@
 // Cadastro de medidores: lista, busca, criação/edição, unidades e etiquetas QR.
 
 import {
-  activeMeters, activeSites, lastReading, newMeter,
+  activeMeters, activeSites, lastReading, newMeter, readingsOf,
   saveMeter, deleteMeter, saveSite, deleteSite, TYPES,
 } from './store.js';
 import { icon, toast, openSheet, confirmSheet, typeColor } from './ui.js';
 import { qrSVG } from './qr.js';
-import { el, esc, fmtAuto, fmtDate, parseNum, uid } from './utils.js';
+import { openExportSheet } from './report.js';
+import { el, esc, fmtAuto, fmtDate, parseNum, uid, todayISO } from './utils.js';
 import { SEGMENTS, segmentLabel, linksResumo } from './gestao.js';
 
 /* ---------------- formulário de medidor ---------------- */
@@ -369,6 +370,7 @@ export default async function meters({ navigate }) {
         <button class="chip" data-t="agua" ${type === 'agua' ? 'data-active="true"' : ''}>${icon('drop', 15)} Água</button>
         <button class="chip" id="sites">${icon('filter', 15)} Unidades (${sites.length})</button>
         <button class="chip" id="labels">${icon('print', 15)} Etiquetas QR</button>
+        <button class="chip" id="export-all">${icon('download', 15)} Exportar todos</button>
       </div>
     </div>`);
     root.appendChild(head);
@@ -432,6 +434,29 @@ export default async function meters({ navigate }) {
     head.querySelector('#labels').onclick = () => printLabels(
       activeMeters().filter((m) => type === 'all' || m.type === type)
     );
+
+    /* Um único relatório com todos os medidores do filtro atual. O período vai
+       da leitura mais antiga até hoje, para não cortar nada sem o usuário pedir. */
+    head.querySelector('#export-all').onclick = () => {
+      const alvo = activeMeters().filter((m) => type === 'all' || m.type === type);
+      let from = todayISO();
+      let leituras = 0;
+      alvo.forEach((m) => {
+        const rs = readingsOf(m.id);
+        leituras += rs.length;
+        if (rs.length && rs[0].readAt < from) from = rs[0].readAt;
+      });
+      if (!leituras) {
+        toast('Nenhum dos medidores tem leitura para exportar.', 'info');
+        return;
+      }
+      const rotulo = type === 'all' ? 'todos-os-medidores' : `todos-${type}`;
+      openExportSheet({
+        filters: { from, to: todayISO(), type, siteId: 'all', meterId: 'all' },
+        nome: rotulo,
+        subtitulo: `${alvo.length} medidor(es) · ${leituras} leitura(s) · desde ${fmtDate(from)}`,
+      });
+    };
   };
 
   paint();
