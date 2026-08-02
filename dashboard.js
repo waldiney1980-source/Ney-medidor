@@ -6,7 +6,7 @@ import {
 } from './store.js';
 import { columnChart, barChart } from './charts.js';
 import { chartCard, kpi, icon, openSheet, toast, typeColor, emptyBlock } from './ui.js';
-import { estouros, linksAviso, sugestoes, segmentLabel } from './gestao.js';
+import { estouros, linksAviso } from './gestao.js';
 import {
   el, esc, fmtAuto, fmtMoney, fmtMoneyCompact, fmtDate, fmtDateShort, fmtAxisDate, todayISO,
   addDaysISO, addMonthsISO, daysBetween, dateOf, isoOf, monthLabel,
@@ -272,8 +272,8 @@ export default async function dashboard({ navigate }) {
         </div>
         <div class="card__body stack">
           <span class="hint">A unidade é a loja. É nela que ficam o <b>ramo do negócio</b> (define as sugestões
-          de economia), o <b>WhatsApp do proprietário</b> e os <b>limites do mês</b>. Sem ela, o app não tem
-          para quem avisar nem que dicas mostrar.</span>
+          de economia do relatório gerencial), o <b>WhatsApp do proprietário</b> e os <b>limites do mês</b>.
+          Sem ela, o app não tem para quem mandar o aviso de estouro.</span>
           <button class="btn btn--primary btn--block" id="cad-unidade">
             ${icon('plus', 18)} ${soltos.length ? 'Cadastrar unidade e incluir os medidores' : 'Completar o cadastro da unidade'}
           </button>
@@ -286,59 +286,9 @@ export default async function dashboard({ navigate }) {
       root.appendChild(aviso);
     }
 
-    /* --- sugestões de economia do ramo --- */
-    const segmentosNaTela = [...new Set(activeSites()
-      .filter((s) => (f.siteId === 'all' || s.id === f.siteId)
-        && activeMeters().some((m) => m.siteId === s.id))
-      .map((s) => s.segment || ''))];
-    const tiposNaTela = blocks.filter((b) => b.metersCount).map((b) => b.type);
-
-    if (tiposNaTela.length) {
-      const acc = { energia: [], agua: [] };
-      for (const seg of (segmentosNaTela.length ? segmentosNaTela : [''])) {
-        const d = sugestoes(seg, tiposNaTela);
-        acc.energia.push(...d.energia);
-        acc.agua.push(...d.agua);
-      }
-      acc.energia = [...new Set(acc.energia)];
-      acc.agua = [...new Set(acc.agua)];
-
-      const nomeSeg = segmentosNaTela.length === 1 && segmentosNaTela[0]
-        ? segmentLabel(segmentosNaTela[0]) : '';
-      const bloco = (arr, tipo, rotulo) => arr.length ? `
-        <div class="stack" style="gap:7px">
-          <div class="section-title" style="margin:0">
-            <span class="dot" style="background:${typeColor(tipo)}"></span>${rotulo}
-          </div>
-          <ol class="dicas">${arr.map((d) => `<li>${esc(d)}</li>`).join('')}</ol>
-        </div>` : '';
-
-      const card = el(`<section class="card">
-        <div class="card__head"><div class="grow">
-          <h2>Como reduzir o consumo</h2>
-          <p>${nomeSeg ? `Recomendações para ${esc(nomeSeg.toLowerCase())}.` : 'Recomendações práticas.'}
-          Também saem no relatório gerencial.</p>
-        </div></div>
-        <div class="card__body stack" id="dicas-corpo" data-aberto="0">
-          ${bloco(acc.energia, 'energia', 'Energia')}
-          ${bloco(acc.agua, 'agua', 'Água')}
-        </div>
-        <div class="card__body" style="padding-top:0">
-          <button class="btn btn--block btn--sm" id="mais">Ver todas as sugestões</button>
-        </div>
-      </section>`);
-
-      const corpo = card.querySelector('#dicas-corpo');
-      const botao = card.querySelector('#mais');
-      const total = acc.energia.length + acc.agua.length;
-      if (total <= 3) botao.remove();
-      else botao.onclick = () => {
-        const aberto = corpo.dataset.aberto === '1';
-        corpo.dataset.aberto = aberto ? '0' : '1';
-        botao.textContent = aberto ? 'Ver todas as sugestões' : 'Mostrar menos';
-      };
-      root.appendChild(card);
-    }
+    /* As sugestões de economia saíram do painel a pedido: o painel é para os
+       números do mês. Elas continuam no relatório gerencial e no aviso de
+       estouro, que é onde viram conversa com o lojista. */
 
     /* --- por tipo: evolução + ranking --- */
     blocks.forEach((b) => {
