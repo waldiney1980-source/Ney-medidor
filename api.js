@@ -10,6 +10,9 @@ import * as sb from './supabase.js';
 
 let running = null;
 
+/** Folga da marca de sincronização, para absorver diferença de relógio. */
+const SOBREPOSICAO = 2 * 60 * 1000;
+
 function setStatus(status, message = '') {
   state.sync.status = status;
   state.sync.message = message;
@@ -68,7 +71,13 @@ export async function sync({ silent = false } = {}) {
 
       const remote = await sb.pull(state.settings.lastSyncAt || 0);
       const applied = await applyRemote(remote);
-      await saveSettings({ lastSyncAt: remote.now || Date.now() });
+      /* A marca de "até onde já baixei" recua um pouco de propósito. Ela vem do
+         relógio deste aparelho, e os registros trazem o relógio de quem gravou:
+         alguns segundos de diferença entre os dois bastam para um registro cair
+         numa fresta e nunca mais ser buscado. Com a sobreposição, o pior que
+         acontece é rebaixar registros já conhecidos — o que é inofensivo. */
+      const marca = (remote.now || Date.now()) - SOBREPOSICAO;
+      await saveSettings({ lastSyncAt: Math.max(0, marca) });
 
       setStatus('ok', 'Sincronizado');
       return { pushed: hasLocal ? 1 : 0, applied };
