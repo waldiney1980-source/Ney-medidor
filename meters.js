@@ -316,14 +316,39 @@ function sitesSheet(onSaved) {
 
 /* ---------------- etiquetas com QR ---------------- */
 
+/** Onde o app mora de verdade — usado quando a etiqueta é gerada de uma cópia local. */
+const ENDERECO_PUBLICO = 'https://waldiney1980-source.github.io/Ney-medidor/';
+
 /**
  * Endereço do app sem o arquivo final — base para o link da etiqueta.
  * Ex.: https://…/Ney-medidor/index.html → https://…/Ney-medidor/
+ *
+ * Etiqueta é papel: fica colada no relógio por anos. Se for gerada de uma cópia
+ * aberta em localhost, no arquivo local ou num túnel de teste, o QR nasce
+ * apontando para um endereço que só existe naquela máquina — e o celular de
+ * quem for ler recebe "não foi possível conectar". Nesses casos vale mais o
+ * endereço público do que o de onde a folha saiu.
  */
-const baseDoApp = () => location.origin + location.pathname.replace(/[^/]*$/, '');
+function baseDoApp() {
+  const { protocol, hostname } = location;
+  const soLocal = protocol === 'file:'
+    || hostname === 'localhost'
+    || hostname === '127.0.0.1'
+    || hostname === '::1'
+    || hostname.endsWith('.local');
+  if (soLocal) return ENDERECO_PUBLICO;
+  return location.origin + location.pathname.replace(/[^/]*$/, '');
+}
 
-/** O que o QR da etiqueta carrega: um link que abre o app já no medidor. */
-export const linkDoMedidor = (m) => `${baseDoApp()}#/medidor/${m.id}`;
+/**
+ * O que o QR da etiqueta carrega: um link que abre o app já no medidor.
+ *
+ * Vai o **código** do medidor, não o id interno. Sem sincronização na nuvem
+ * cada aparelho gera ids próprios, então uma etiqueta impressa no computador
+ * não seria reconhecida pelo celular. O código é o mesmo em todo lugar.
+ * Só cai para o id quando o medidor não tem código cadastrado.
+ */
+export const linkDoMedidor = (m) => `${baseDoApp()}#/medidor/${encodeURIComponent(m.code || m.id)}`;
 
 export function printLabels(meters) {
   if (!meters.length) {

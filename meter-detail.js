@@ -1,7 +1,7 @@
 // Histórico completo de um medidor: evolução, consumo mensal e leituras.
 
 import {
-  meterById, readingsOf, consumptionEvents, lastReading, siteName,
+  meterById, meterByCode, readingsOf, consumptionEvents, lastReading, siteName,
   deleteReading, saveReading, meterTariff, TYPES,
   dailyConsumption, weekdayAverage, averageForRange,
 } from './store.js';
@@ -64,11 +64,16 @@ async function showPhoto(photoId, meter, reading, onApplied) {
 }
 
 export default async function meterDetail({ params, navigate }) {
-  const meter = meterById(params[0]);
+  /* O QR da etiqueta traz o código do medidor; a navegação interna traz o id.
+     Aceitar os dois é o que faz a etiqueta valer em qualquer aparelho. */
+  const alvo = decodeURIComponent(params[0] || '');
+  const meter = meterById(alvo) || meterByCode(alvo);
   const root = el('<div class="stack"></div>');
 
   if (!meter || meter.deleted) {
-    root.innerHTML = `<div class="empty"><b>Medidor não encontrado</b><p>Ele pode ter sido excluído.</p></div>`;
+    root.innerHTML = `<div class="empty"><b>Medidor não encontrado</b>
+      <p>Nenhum medidor com o código ou identificador <b>${esc(alvo)}</b> neste aparelho.
+      Se a etiqueta foi feita em outro celular, ligue a sincronização na nuvem para os dois enxergarem o mesmo cadastro.</p></div>`;
     return { el: root, title: 'Medidor' };
   }
 
