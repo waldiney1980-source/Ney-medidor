@@ -10,7 +10,7 @@ import { buildXlsx } from './xlsx.js';
 import { icon, toast, openSheet } from './ui.js';
 import {
   esc, fmtAuto, fmtDate, fmtMoney, downloadFile, toCSV, todayISO,
-  monthKey, monthLabel, daysBetween,
+  monthKey, monthLabel, daysBetween, addDaysISO,
 } from './utils.js';
 import { sugestoes, segmentLabel } from './gestao.js';
 
@@ -716,11 +716,31 @@ const slug = (s) => String(s || 'relatorio').normalize('NFD').replace(/[̀-ͯ]/g
  */
 export function openExportSheet({ filters, nome = 'leituras', subtitulo = '' }) {
   let includePhotos = true;
+  /* O período chega pronto de quem abriu a folha, mas dá para reduzi-lo aqui.
+     "Tudo" volta para o intervalo original — por isso guardamos as duas pontas. */
+  const cheio = { from: filters.from, to: filters.to };
+  let from = filters.from;
+  let to = filters.to;
 
   openSheet({
     title: 'Exportar relatório',
     sub: subtitulo,
     body: `<div class="stack">
+      <div class="field">
+        <label>Período</label>
+        <div class="filters" style="padding-bottom:0">
+          <button class="chip" data-p="tudo" data-active="true">Tudo</button>
+          <button class="chip" data-p="30">30 dias</button>
+          <button class="chip" data-p="90">90 dias</button>
+          <button class="chip" data-p="365">12 meses</button>
+          <button class="chip" data-p="ano">Ano atual</button>
+        </div>
+        <div class="row" style="gap:8px;margin-top:10px">
+          <div class="field grow" style="margin:0"><label for="exp-de">De</label><input class="input" type="date" id="exp-de" value="${from}"></div>
+          <div class="field grow" style="margin:0"><label for="exp-ate">Até</label><input class="input" type="date" id="exp-ate" value="${to}"></div>
+        </div>
+        <span class="hint" id="exp-periodo">Exportando de ${fmtDate(from)} a ${fmtDate(to)}.</span>
+      </div>
       <div class="field">
         <label>Incluir as fotos das leituras</label>
         <div class="filters" style="padding-bottom:0">
@@ -740,6 +760,48 @@ export function openExportSheet({ filters, nome = 'leituras', subtitulo = '' }) 
     </div>`,
     onMount(sheet, close) {
       const status = sheet.querySelector('#exp-status');
+      const deEl = sheet.querySelector('#exp-de');
+      const ateEl = sheet.querySelector('#exp-ate');
+      const resumo = sheet.querySelector('#exp-periodo');
+
+      /* Reflete o período nos campos, no texto de apoio e nos chips. Um preset
+         nunca pode passar do intervalo que existe de fato, senão o relatório
+         anuncia um começo que não tem leitura nenhuma. */
+      const pintarPeriodo = (preset = null) => {
+        if (from > to) [from, to] = [to, from];
+        if (from < cheio.from) from = cheio.from;
+        if (to > cheio.to) to = cheio.to;
+        deEl.value = from;
+        ateEl.value = to;
+        resumo.textContent = `Exportando de ${fmtDate(from)} a ${fmtDate(to)}.`;
+        sheet.querySelectorAll('[data-p]').forEach((x) => {
+          if (preset) x.dataset.active = String(x.dataset.p === preset);
+          else delete x.dataset.active;
+        });
+      };
+
+      sheet.querySelectorAll('[data-p]').forEach((b) => b.onclick = () => {
+        const p = b.dataset.p;
+        if (p === 'tudo') {
+          from = cheio.from;
+          to = cheio.to;
+        } else if (p === 'ano') {
+          from = cheio.to.slice(0, 4) + '-01-01';
+          to = cheio.to;
+        } else {
+          to = cheio.to;
+          from = addDaysISO(cheio.to, -(Number(p) - 1));
+        }
+        pintarPeriodo(p);
+      });
+
+      /* Digitar uma data à mão desmarca os presets: o intervalo virou manual. */
+      [deEl, ateEl].forEach((input) => input.onchange = () => {
+        from = deEl.value || from;
+        to = ateEl.value || to;
+        pintarPeriodo();
+      });
+
       sheet.querySelectorAll('[data-ph]').forEach((b) => b.onclick = () => {
         includePhotos = b.dataset.ph === '1';
         sheet.querySelectorAll('[data-ph]').forEach((x) => x.dataset.active = String(x === b));
@@ -753,7 +815,7 @@ export function openExportSheet({ filters, nome = 'leituras', subtitulo = '' }) 
         const msg = status.querySelector('#exp-msg');
 
         try {
-          const report = await collectReport(filters, {
+          const report = await collectReport({ ...filters, from, to }, {
             includePhotos: wantPhotos,
             onProgress: (done, total) => { msg.textContent = `Carregando fotos… ${done}/${total}`; },
           });
