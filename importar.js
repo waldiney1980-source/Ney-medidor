@@ -51,7 +51,30 @@ async function unzip(buf) {
  * acaba com a primeira aba morando em `sheet3.xml`, e o app leria a errada — ou
  * uma vazia, e a mensagem seria "planilha sem linhas".
  */
+/**
+ * Nem todo zip é um .xlsx. Numbers, Pages, ODS e até .zip comum começam com os
+ * mesmos bytes; sem reconhecê-los, o erro que aparece é "nenhuma aba
+ * encontrada", que não diz à pessoa o que fazer.
+ */
+function recusarSeNaoForXlsx(z) {
+  const tem = (p) => z.names.some((n) => n.startsWith(p));
+  if (tem('xl/')) return;
+  if (tem('Index/') || z.names.some((n) => /\.iwa$/.test(n))) {
+    throw new Error('Este é um arquivo do Numbers. No Numbers, use '
+      + 'Arquivo → Exportar para → Excel, e envie o arquivo exportado.');
+  }
+  if (z.names.includes('content.xml') || z.names.includes('mimetype')) {
+    throw new Error('Este é um arquivo do LibreOffice/OpenOffice (.ods). '
+      + 'Salve como .xlsx ou .csv e envie de novo.');
+  }
+  if (tem('word/')) throw new Error('Isto é um documento do Word, não uma planilha.');
+  if (tem('ppt/')) throw new Error('Isto é uma apresentação, não uma planilha.');
+  throw new Error('Este arquivo compactado não é uma planilha do Excel. '
+    + 'Envie o .xlsx exportado da sua planilha, ou um .csv.');
+}
+
 async function primeiraAba(z) {
+  recusarSeNaoForXlsx(z);
   try {
     const wb = await z.text('xl/workbook.xml');
     const rels = await z.text('xl/_rels/workbook.xml.rels');
@@ -267,10 +290,14 @@ function numero(v) {
  */
 export function interpretar(linhas) {
   const limpas = linhas.filter((l) => l && l.some((c) => String(c || '').trim() !== ''));
-  if (!limpas.length) return { itens: [], semCabecalho: true, colunas: {} };
+  if (!limpas.length) return { itens: [], semCabecalho: true, colunas: {}, titulos: [] };
 
   const colunas = mapearCabecalho(limpas[0]);
-  if (colunas.name === undefined) return { itens: [], semCabecalho: true, colunas };
+  /* Devolve os títulos lidos: sem isso a tela só consegue dizer 'não achei a
+     coluna Nome', e quem está do outro lado não sabe se o problema é o título,
+     a aba ou a linha em que o cabeçalho está. */
+  const titulos = limpas[0].map((t) => String(t ?? '').trim()).filter(Boolean);
+  if (colunas.name === undefined) return { itens: [], semCabecalho: true, colunas, titulos };
 
   const jaTem = activeMeters();
   const sites = activeSites();
@@ -341,7 +368,7 @@ export function interpretar(linhas) {
     });
   });
 
-  return { itens, semCabecalho: false, colunas };
+  return { itens, semCabecalho: false, colunas, titulos };
 }
 
 const siteName = (meter, sites) => {

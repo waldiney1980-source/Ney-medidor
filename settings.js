@@ -194,11 +194,13 @@ export default async function settings() {
 
     /* --- backup --- */
     const backup = el(`<section class="card">
-      <div class="card__head"><div class="grow"><h2>Cópia de segurança</h2><p>Arquivo técnico (.json) para restaurar o app noutro aparelho. <b>Não é o relatório</b> — o relatório em PDF e Excel fica no Histórico.</p></div></div>
+      <div class="card__head"><div class="grow"><h2>Cópia de segurança</h2><p>Arquivo técnico (.json) para restaurar o app noutro aparelho. <b>Não é aqui que se importa planilha de medidores</b> — isso fica em Medidores → Importar planilha. <b>Também não é o relatório</b> — o relatório em PDF e Excel fica no Histórico.</p></div></div>
       <div class="card__body stack">
         <div class="row" style="gap:8px">
           <button class="btn grow" id="export">${icon('download', 18)} Salvar cópia (.json)</button>
-          <button class="btn grow" id="import">${icon('upload', 18)} Importar</button>
+          <!-- rótulo explícito: "Importar" sozinho se confunde com a carga de
+               medidores por planilha, que fica em Medidores -->
+          <button class="btn grow" id="import">${icon('upload', 18)} Restaurar cópia (.json)</button>
         </div>
         <input type="file" accept="application/json" id="file" hidden>
         <button class="btn btn--danger btn--block" id="wipe">${icon('trash', 18)} Apagar dados</button>
@@ -218,10 +220,23 @@ export default async function settings() {
       if (!f) return;
       try {
         const text = await f.text();
+        /* Este botão restaura a cópia de segurança (.json). Quem quer cadastrar
+           medidores em massa vem parar aqui por engano — os dois se chamam
+           "importar" — e recebia um erro de JSON sem sentido. Reconhecer a
+           planilha e apontar o caminho certo custa três linhas. */
+        if (/^PK/.test(text)) {
+          throw new Error('Isto é uma planilha, não uma cópia de segurança. '
+            + 'Para cadastrar medidores em massa, use Medidores → Importar planilha.');
+        }
+        if (!/^\s*\{/.test(text)) {
+          throw new Error('Este arquivo não é uma cópia de segurança do HidroLuz. '
+            + 'Ela é um .json gerado pelo botão "Salvar cópia" — e, se você quer '
+            + 'cadastrar medidores por planilha, o caminho é Medidores → Importar planilha.');
+        }
         const res = await importBackup(text);
         toast(`Importado: ${res.meters} medidor(es) e ${res.readings} leitura(s).`, 'ok', 4200);
         paint();
-      } catch (e) { toast(e.message || 'Arquivo inválido.', 'error', 4200); }
+      } catch (e) { toast(e.message || 'Arquivo inválido.', 'error', 5600); }
       file.value = '';
     };
     /** Limpa só o aparelho — a nuvem devolve tudo na próxima sincronização. */

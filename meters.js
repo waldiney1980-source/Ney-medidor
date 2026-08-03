@@ -541,14 +541,26 @@ export function importSheet(onDone) {
           const linhas = await lerPlanilha(file);
           const lido = interpretar(linhas);
           if (lido.semCabecalho) {
+            /* Mostrar os títulos que vieram poupa uma ida e volta: dá para ver
+               na hora se o cabeçalho está na linha errada, se a aba lida é
+               outra, ou se é só o nome da coluna que precisa mudar. */
+            const achados = (lido.titulos || []).slice(0, 12);
             box.innerHTML = `<div class="alert alert--critical">${icon('alert', 18)}<span>
-              Não encontrei a coluna <b>Nome</b> na primeira linha. Confira se os títulos estão na
-              linha 1 da planilha — baixe o modelo para comparar.</span></div>`;
+              Não encontrei a coluna <b>Nome</b> na primeira linha da planilha.
+              ${achados.length
+    ? `<br><br>Os títulos que li foram: <b>${esc(achados.join(' · '))}</b>.<br><br>
+                 Renomeie a coluna do nome do ponto para <b>Nome</b> (ou <i>Medidor</i>, <i>Descrição</i>,
+                 <i>Ponto de Medição</i>), ou baixe o modelo e cole os seus dados nele.`
+    : '<br><br>A primeira linha veio vazia. Os títulos precisam estar na <b>linha 1</b>, sem linhas em branco nem título de relatório acima deles.'}
+              </span></div>`;
             return;
           }
           itens = lido.itens;
           if (!itens.length) {
-            box.innerHTML = `<div class="alert alert--warn">${icon('alert', 18)}<span>A planilha não tem nenhuma linha preenchida além do cabeçalho.</span></div>`;
+            box.innerHTML = `<div class="alert alert--warn">${icon('alert', 18)}<span>
+              Li o cabeçalho (<b>${esc((lido.titulos || []).slice(0, 8).join(' · '))}</b>) mas não achei
+              nenhuma linha preenchida abaixo dele. Confira se os dados estão na <b>primeira aba</b>
+              da planilha.</span></div>`;
             return;
           }
           box.innerHTML = resumoHtml();
