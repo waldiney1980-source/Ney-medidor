@@ -269,36 +269,68 @@ export default async function dashboard({ navigate }) {
       .filter((s) => !s.ownerPhone && !s.ownerEmail
         && activeMeters().some((m) => m.siteId === s.id));
 
+    /* Pendências de cadastro são lembretes, não notícia do mês. Ficavam com o
+       tamanho de um cartão inteiro no meio do painel, competindo com consumo e
+       custo, e reaparecendo a cada abertura mesmo depois de vistas. Vão para um
+       grupo recolhido no fim da tela — continuam à mão, sem tomar a frente. */
+    const alertas = [];
+
     if (soltos.length || semDono.length) {
-      const falta = soltos.length
-        ? `${soltos.length} medidor(es) ainda não estão ligados a uma unidade.`
-        : `A unidade ${semDono.map((s) => `“${s.name}”`).join(', ')} está sem o contato do proprietário.`;
-      const aviso = el(`<section class="card">
-        <div class="card__head">
-          <span class="item__icon" style="background:var(--brand);width:38px;height:38px">${icon('info', 20)}</span>
-          <div class="grow"><h2>Falta cadastrar a unidade</h2><p>${esc(falta)}</p></div>
-        </div>
-        <div class="card__body stack">
-          <span class="hint">A unidade é a loja. É nela que ficam o <b>ramo do negócio</b> (define as sugestões
-          de economia do relatório gerencial), o <b>WhatsApp do proprietário</b> e os <b>limites do mês</b>.
-          Sem ela, o app não tem para quem mandar o aviso de estouro.</span>
-          <button class="btn btn--primary btn--block" id="cad-unidade">
-            ${icon(soltos.length ? 'list' : 'plus', 18)} ${soltos.length ? 'Escolher a unidade dos medidores' : 'Completar o cadastro da unidade'}
-          </button>
-        </div>
-      </section>`);
-      /* Com medidores soltos, abre a lista de unidades: quase sempre a unidade
-         certa já existe e o que falta é vincular. Levar direto ao formulário de
-         nova unidade obrigava a cadastrar de novo o que já estava lá — e ainda
-         gerava unidade duplicada. A lista traz "Nova unidade" para quem
-         realmente precisa criar. */
-      aviso.querySelector('#cad-unidade').onclick = async () => {
-        const { sitesSheet, siteFormSheet } = await import('./meters.js');
-        if (soltos.length) sitesSheet(paint);
-        else siteFormSheet(semDono[0], paint);
-      };
-      root.appendChild(aviso);
+      alertas.push({
+        titulo: 'Falta cadastrar a unidade',
+        texto: soltos.length
+          ? `${soltos.length} medidor(es) ainda não estão ligados a uma unidade.`
+          : `A unidade ${semDono.map((s) => `“${s.name}”`).join(', ')} está sem o contato do proprietário.`,
+        detalhe: 'A unidade é a loja. É nela que ficam o ramo do negócio, o WhatsApp do proprietário e os '
+          + 'limites do mês. Sem ela, o app não tem para quem mandar o aviso de estouro.',
+        acao: soltos.length ? 'Escolher a unidade dos medidores' : 'Completar o cadastro da unidade',
+        /* Com medidores soltos, abre a LISTA de unidades: quase sempre a certa
+           já existe e o que falta é vincular. Ir direto ao formulário de nova
+           unidade obrigava a recadastrar e gerava duplicata. */
+        onClick: async () => {
+          const { sitesSheet, siteFormSheet } = await import('./meters.js');
+          if (soltos.length) sitesSheet(paint);
+          else siteFormSheet(semDono[0], paint);
+        },
+      });
     }
+
+    const pintarAlertas = () => {
+      if (!alertas.length) return;
+      const grupo = el(`<section class="card">
+        <button class="card__head card__head--botao" id="alertas-cabeca" aria-expanded="false">
+          <span class="item__icon" style="background:var(--warning);width:34px;height:34px">${icon('alert', 18)}</span>
+          <span class="grow" style="text-align:left">
+            <h2 style="font-size:15px">Alertas</h2>
+            <p>${alertas.length} pendência(s) de cadastro</p>
+          </span>
+          <span id="alertas-seta" style="color:var(--muted);transition:transform .18s">${icon('chev', 18)}</span>
+        </button>
+        <div class="card__body stack" id="alertas-corpo" hidden></div>
+      </section>`);
+
+      const corpo = grupo.querySelector('#alertas-corpo');
+      alertas.forEach((a, i) => {
+        const item = el(`<div class="stack" style="gap:8px${i ? ';border-top:1px solid var(--border);padding-top:14px' : ''}">
+          <div><b style="font-size:14.5px">${esc(a.titulo)}</b>
+            <p class="small" style="color:var(--ink-2);margin-top:2px">${esc(a.texto)}</p></div>
+          <span class="hint">${esc(a.detalhe)}</span>
+          <button class="btn btn--sm btn--block">${esc(a.acao)}</button>
+        </div>`);
+        item.querySelector('button').onclick = a.onClick;
+        corpo.appendChild(item);
+      });
+
+      const cabeca = grupo.querySelector('#alertas-cabeca');
+      const seta = grupo.querySelector('#alertas-seta');
+      cabeca.onclick = () => {
+        const aberto = !corpo.hidden;
+        corpo.hidden = aberto;
+        cabeca.setAttribute('aria-expanded', String(!aberto));
+        seta.style.transform = aberto ? '' : 'rotate(90deg)';
+      };
+      root.appendChild(grupo);
+    };
 
     /* As sugestões de economia saíram do painel a pedido: o painel é para os
        números do mês. Elas continuam no relatório gerencial e no aviso de
@@ -404,6 +436,9 @@ export default async function dashboard({ navigate }) {
       });
       root.appendChild(card);
     }
+
+    // por último: pendências de cadastro, recolhidas
+    pintarAlertas();
   };
 
   paint();

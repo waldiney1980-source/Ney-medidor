@@ -495,7 +495,12 @@ textarea.input { height: auto; padding: 11px 13px; min-height: 76px; resize: ver
 .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
 /* o "C" ocupa a linha inteira: some do meio dos números e para de ser apertado
    por engano no lugar do zero */
-.key--wide { grid-column: 1 / -1; }
+/* cabeçalho de cartão que abre e fecha (grupo de alertas) */
+.card__head--botao {
+  width: 100%; border: 0; background: none; cursor: pointer;
+  font: inherit; color: inherit; text-align: left;
+}
+.card__head--botao:hover h2 { color: var(--brand); }
 .key {
   height: 58px; border-radius: var(--r-md);
   border: 1px solid var(--border); background: var(--surface-2);
