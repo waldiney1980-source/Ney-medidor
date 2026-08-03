@@ -1,9 +1,13 @@
 // Leitor de QR Code / código de barras da etiqueta do medidor.
 //
-// Usa a Barcode Detection API quando o navegador tem (Chrome no Android) e cai
-// no leitor próprio (qr-decode.js) quando não tem — que é o caso do Safari, ou
-// seja, de todo iPhone. Sem esse segundo caminho, o botão de QR não abria a
-// câmera no iPhone e sobrava digitar o código na mão.
+// O leitor próprio (qr-decode.js) é o caminho principal, porque funciona em
+// qualquer navegador com câmera. A Barcode Detection API do navegador entra
+// apenas como tentativa extra, quando declara suportar qr_code — e sai de cena
+// sozinha se ficar alguns segundos sem achar nada.
+//
+// A ordem importa: confiar na API só porque ela existe deixou o Chrome do
+// Windows com a câmera aberta e sem ler nada, enquanto o iPhone, que não tem a
+// API, lia normalmente pelo leitor próprio.
 
 import { icon, toast } from './ui.js';
 import { decodificar } from './qr-decode.js';
@@ -36,11 +40,10 @@ export async function scanCode() {
   document.body.appendChild(overlay);
 
   const video = overlay.querySelector('video');
-  let stream = null, raf = 0, timer = 0, done = false;
+  let stream = null, timer = 0, done = false;
 
   const cleanup = () => {
     done = true;
-    cancelAnimationFrame(raf);
     clearTimeout(timer);
     if (stream) stream.getTracks().forEach((t) => t.stop());
     overlay.remove();
@@ -77,38 +80,45 @@ export async function scanCode() {
       finish(String(valor || '').trim());
     };
 
-    if ('BarcodeDetector' in window) {
-      const detector = new window.BarcodeDetector({
-        formats: ['qr_code', 'code_128', 'code_39', 'ean_13', 'data_matrix'],
-      });
-      const tick = async () => {
-        if (done) return;
-        try {
-          const codes = await detector.detect(video);
-          if (codes && codes.length) { achou(codes[0].rawValue); return; }
-        } catch { /* quadro inválido — segue para o próximo */ }
-        raf = requestAnimationFrame(tick);
-      };
-      raf = requestAnimationFrame(tick);
-      return;
-    }
+    /* O leitor próprio é o caminho PRINCIPAL, e a API do navegador vira apenas
+       uma tentativa extra.
+     *
+     * A versão anterior fazia o contrário: bastava a API existir para o app se
+     * entregar a ela. No Chrome do Windows ela existe e não lê código nenhum —
+     * a câmera abria e nunca reconhecia nada, enquanto o mesmo app no iPhone,
+     * que não tem a API e caía no leitor próprio, funcionava. Perguntar "existe?"
+     * não serve; o que vale é se lê.
+     *
+     * A API só é usada quando ela mesma declara suportar qr_code, e ainda assim
+     * é desligada se ficar um tempo sem achar nada — nesse caso não custa nada
+     * parar de tentar. */
+    let detector = null;
+    try {
+      if ('BarcodeDetector' in window) {
+        const suportados = await window.BarcodeDetector.getSupportedFormats();
+        if (suportados && suportados.includes('qr_code')) {
+          detector = new window.BarcodeDetector({
+            formats: ['qr_code', 'code_128', 'code_39', 'ean_13', 'data_matrix'],
+          });
+        }
+      }
+    } catch { detector = null; }
 
-    /* Leitor próprio, alternando duas formas de olhar o mesmo quadro:
+    const DESISTIR_DA_API_MS = 3000;
+    const comecouEm = Date.now();
 
+    /* Duas formas de olhar o mesmo quadro, alternadas:
        1. QUADRO INTEIRO reduzido a 720px — pega o código onde ele estiver, e é
           o que funciona quando a etiqueta preenche boa parte da tela.
-       2. RECORTE CENTRAL em resolução cheia — é o que salva a etiqueta pequena
-          ou distante. Reduzir o quadro todo espreme o QR a poucos pixels por
+       2. RECORTE CENTRAL em resolução cheia — salva a etiqueta pequena ou
+          distante. Reduzir o quadro todo espreme o QR a poucos pixels por
           módulo e ele deixa de fechar; recortando o meio, cada módulo mantém o
-          tamanho que a câmera capturou.
-
-       Alternar sai mais barato que fazer as duas por quadro, e a mão treme o
-       bastante para as duas verem cenas ligeiramente diferentes. */
+          tamanho que a câmera capturou. */
     const lona = document.createElement('canvas');
     const ctx = lona.getContext('2d', { willReadFrequently: true });
     let modo = 0;
 
-    const tickProprio = () => {
+    const tickProprio = async () => {
       if (done) return;
       const vw = video.videoWidth, vh = video.videoHeight;
       if (vw && vh) {
@@ -127,6 +137,19 @@ export async function scanCode() {
             lona.height = destino;
             ctx.drawImage(video, sx, sy, lado, lado, 0, 0, destino, destino);
           }
+
+          /* A API primeiro, quando há: é rápida e também lê código de barras.
+             Recebe o canvas, não o elemento de vídeo — alguns navegadores só
+             funcionam com um dos dois. */
+          if (detector) {
+            try {
+              const codes = await detector.detect(lona);
+              if (codes && codes.length) { achou(codes[0].rawValue); return; }
+            } catch { detector = null; }
+            if (detector && Date.now() - comecouEm > DESISTIR_DA_API_MS) detector = null;
+          }
+          if (done) return;
+
           const texto = decodificar(ctx.getImageData(0, 0, lona.width, lona.height));
           if (texto) { achou(texto); return; }
         } catch { /* quadro ruim — tenta o próximo */ }

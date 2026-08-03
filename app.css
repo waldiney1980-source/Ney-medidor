@@ -493,6 +493,9 @@ textarea.input { height: auto; padding: 11px 13px; min-height: 76px; resize: ver
 .reader__value[data-empty="1"] { color: var(--axis); }
 .reader__unit { font-size: 14px; color: var(--muted); font-weight: 550; }
 .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
+/* o "C" ocupa a linha inteira: some do meio dos números e para de ser
+   apertado por engano no lugar do zero */
+.key--wide { grid-column: 1 / -1; }
 /* o "C" ocupa a linha inteira: some do meio dos números e para de ser apertado
    por engano no lugar do zero */
 /* cabeçalho de cartão que abre e fecha (grupo de alertas) */
