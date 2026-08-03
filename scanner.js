@@ -93,27 +93,47 @@ export async function scanCode() {
       return;
     }
 
-    /* Leitor próprio. Reduz o quadro para no máximo 640px no lado maior: acima
-       disso o custo cresce sem melhorar a leitura, e o objetivo é sobrar tempo
-       de processador para a prévia da câmera não travar na mão do leiturista. */
+    /* Leitor próprio, alternando duas formas de olhar o mesmo quadro:
+
+       1. QUADRO INTEIRO reduzido a 720px — pega o código onde ele estiver, e é
+          o que funciona quando a etiqueta preenche boa parte da tela.
+       2. RECORTE CENTRAL em resolução cheia — é o que salva a etiqueta pequena
+          ou distante. Reduzir o quadro todo espreme o QR a poucos pixels por
+          módulo e ele deixa de fechar; recortando o meio, cada módulo mantém o
+          tamanho que a câmera capturou.
+
+       Alternar sai mais barato que fazer as duas por quadro, e a mão treme o
+       bastante para as duas verem cenas ligeiramente diferentes. */
     const lona = document.createElement('canvas');
     const ctx = lona.getContext('2d', { willReadFrequently: true });
+    let modo = 0;
 
     const tickProprio = () => {
       if (done) return;
       const vw = video.videoWidth, vh = video.videoHeight;
       if (vw && vh) {
-        const escala = Math.min(1, 640 / Math.max(vw, vh));
-        lona.width = Math.round(vw * escala);
-        lona.height = Math.round(vh * escala);
-        ctx.drawImage(video, 0, 0, lona.width, lona.height);
         try {
+          if (modo === 0) {
+            const escala = Math.min(1, 720 / Math.max(vw, vh));
+            lona.width = Math.round(vw * escala);
+            lona.height = Math.round(vh * escala);
+            ctx.drawImage(video, 0, 0, lona.width, lona.height);
+          } else {
+            // quadrado central, do tamanho do lado menor, com folga de 15%
+            const lado = Math.min(vw, vh) * 0.85;
+            const sx = (vw - lado) / 2, sy = (vh - lado) / 2;
+            const destino = Math.min(900, Math.round(lado));
+            lona.width = destino;
+            lona.height = destino;
+            ctx.drawImage(video, sx, sy, lado, lado, 0, 0, destino, destino);
+          }
           const texto = decodificar(ctx.getImageData(0, 0, lona.width, lona.height));
           if (texto) { achou(texto); return; }
         } catch { /* quadro ruim — tenta o próximo */ }
+        modo = modo ? 0 : 1;
       }
       // intervalo em vez de quadro a quadro: a decodificação é pesada
-      timer = setTimeout(tickProprio, 130);
+      timer = setTimeout(tickProprio, 120);
     };
     timer = setTimeout(tickProprio, 250);
   });
