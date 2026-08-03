@@ -11,7 +11,7 @@ import { chartCard, kpi, icon, toast, openSheet, confirmSheet, typeColor } from 
 import { meterFormSheet, printLabels } from './meters.js';
 import { openExportSheet } from './report.js';
 import {
-  el, esc, fmtAuto, fmtDate, fmtAxisDate, fmtMoney, monthKey, monthLabel,
+  el, esc, fmtAuto, fmtLeitura, fmtDate, fmtAxisDate, fmtMoney, monthKey, monthLabel,
   todayISO, daysBetween, dateOf, isoOf,
 } from './utils.js';
 
@@ -24,7 +24,7 @@ async function showPhoto(photoId, meter, reading, onApplied) {
   if (!rec || !rec.data) { toast('Foto não disponível neste aparelho.', 'info'); return; }
   openSheet({
     title: 'Foto da leitura',
-    sub: `${fmtDate(reading.readAt)} · registrado ${fmtAuto(reading.value)} ${TYPES[meter.type].unit}`,
+    sub: `${fmtDate(reading.readAt)} · registrado ${fmtLeitura(reading.value)} ${TYPES[meter.type].unit}`,
     body: `<img src="${rec.data}" alt="Foto do medidor" style="width:100%;border-radius:12px;display:block">
            <div id="ph-ocr" style="margin-top:12px"></div>`,
     actions: `<button class="btn" data-close>Fechar</button>
@@ -42,7 +42,7 @@ async function showPhoto(photoId, meter, reading, onApplied) {
             const same = Math.abs(val - Number(reading.value)) < 0.0005;
             box.innerHTML = `<div class="alert alert--${same ? 'good' : 'warn'}">${icon(same ? 'check' : 'alert', 18)}
                 <span><b>Foto indica ${fmtAuto(val)} ${TYPES[meter.type].unit}</b><br>
-                ${same ? 'Confere com o valor registrado.' : `O registro atual é ${fmtAuto(reading.value)} ${TYPES[meter.type].unit}.`}</span></div>
+                ${same ? 'Confere com o valor registrado.' : `O registro atual é ${fmtLeitura(reading.value)} ${TYPES[meter.type].unit}.`}</span></div>
               ${same ? '' : `<button class="btn btn--sm btn--primary" id="apply" style="margin-top:8px">Corrigir para ${fmtAuto(val)}</button>`}`;
             const apply = box.querySelector('#apply');
             if (apply) apply.onclick = async () => {
@@ -157,7 +157,7 @@ export default async function meterDetail({ params, navigate }) {
       : null;
 
     root.appendChild(el(`<div class="kpis">
-      ${kpi({ label: 'Última leitura', value: last ? fmtAuto(last.value) : '—', unit: last ? unit : '', deltaLabel: last ? fmtDate(last.readAt) : 'nenhuma leitura' })}
+      ${kpi({ label: 'Última leitura', value: last ? fmtLeitura(last.value) : '—', unit: last ? unit : '', deltaLabel: last ? fmtDate(last.readAt) : 'nenhuma leitura' })}
       ${kpi({ label: 'Último consumo', value: lastEvent ? fmtAuto(lastEvent.consumption) : '—', unit: lastEvent ? unit : '', deltaLabel: lastEvent ? `${lastEvent.days} dia(s)` : '—', colorVar: color })}
       ${kpi({ label: 'Média diária', value: avgDay !== null ? fmtAuto(avgDay) : '—', unit: avgDay !== null ? unit + '/dia' : '', deltaLabel: 'últimas 6 leituras' })}
       ${kpi({ label: 'Últimos 12 meses', value: fmtAuto(total12), unit, deltaLabel: tariff ? fmtMoney(total12 * tariff) : `${valid.length} período(s)` })}
@@ -238,7 +238,7 @@ export default async function meterDetail({ params, navigate }) {
             const has = ev && ev.consumption !== null;
             return `<tr data-r="${r.id}">
               <td>${esc(fmtDate(r.readAt))}${r.readerName ? `<br><span class="muted" style="font-size:11px">${esc(r.readerName)}</span>` : ''}</td>
-              <td>${esc(fmtAuto(r.value))}</td>
+              <td>${esc(fmtLeitura(r.value))}</td>
               ${factor !== 1 ? `<td>${has ? esc(fmtAuto(ev.consumption / factor)) : '—'}</td>` : ''}
               <td>${has ? esc(fmtAuto(ev.consumption)) : '—'}</td>
               <td>${ev ? ev.days : '—'}</td>

@@ -4,7 +4,7 @@ import { state, meterById, activeSites, consumptionEvents, activeMeters, TYPES }
 import { icon, toast, openSheet, typeColor } from './ui.js';
 import { openExportSheet } from './report.js';
 import {
-  el, esc, fmtAuto, fmtDate, fmtDateShort, todayISO, addDaysISO, dateOf, isoOf,
+  el, esc, fmtAuto, fmtLeitura, fmtDate, fmtDateShort, todayISO, addDaysISO, dateOf, isoOf,
 } from './utils.js';
 
 const f = {
@@ -82,7 +82,7 @@ export default async function history({ navigate }) {
               <span class="item__sub">${esc([r.readerName, r.note].filter(Boolean).join(' · ') || TYPES[m.type].label)}</span>
             </span>
             <span class="item__right">
-              <span class="item__value">${esc(fmtAuto(r.value))}</span>
+              <span class="item__value">${esc(fmtLeitura(r.value))}</span>
               <span class="item__meta">${e && e.consumption !== null ? '+' + esc(fmtAuto(e.consumption)) + ' ' + esc(m.unit) : esc(m.unit)}</span>
             </span>
             ${r.photoId ? `<span class="item__chev">${icon('camera', 16)}</span>` : ''}

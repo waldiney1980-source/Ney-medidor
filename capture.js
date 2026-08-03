@@ -10,7 +10,7 @@ import { lerLocal } from './ocr-local.js';
 import { icon, toast, typeColor, openSheet } from './ui.js';
 import { scanCode, scannerSupported } from './scanner.js';
 import {
-  el, esc, fmtAuto, fmtDate, todayISO, parseNum, compressImageMulti, daysBetween,
+  el, esc, fmtAuto, fmtLeitura, fmtDate, todayISO, parseNum, compressImageMulti, daysBetween,
 } from './utils.js';
 
 /* Duas reduções da mesma foto. A de cima só existe em memória e é a que vai
@@ -44,8 +44,9 @@ export default async function capture({ params, navigate }) {
   let meter = params[0] ? meterById(params[0]) : null;
   let editing = params[1] ? readingsOf(meter ? meter.id : '').find((r) => r.id === params[1]) : null;
 
-  // leitura é sempre inteira; um valor legado com fração é arredondado ao editar
-  let digits = editing ? String(Math.round(Number(editing.value) || 0)) : '';
+  /* A leitura aceita fração: em hidrômetro os dígitos vermelhos são as casas
+     decimais. Guardamos com vírgula na digitação e convertemos na gravação. */
+  let digits = editing ? String(editing.value ?? '').replace('.', ',') : '';
   let readAt = editing ? editing.readAt : todayISO();
   let note = editing ? editing.note || '' : '';
   let photoData = undefined;      // undefined = inalterada, null = remover, string = nova
@@ -74,9 +75,11 @@ export default async function capture({ params, navigate }) {
 
   /** Converte o resultado do modelo no texto que vai para o visor.
    *  A leitura é sempre um número inteiro — qualquer fração é descartada. */
+  /* O servidor devolve com ponto decimal ("1234.57"); na tela e no teclado o
+     separador é a vírgula, como todo mundo escreve por aqui. */
   const ocrDigits = () => {
     if (!ocr.value) return '';
-    return String(ocr.value).replace(/^0+(?=\d)/, '');
+    return String(ocr.value).replace(/^0+(?=\d)/, '').replace('.', ',');
   };
 
   function paintOcr() {
@@ -256,7 +259,7 @@ export default async function capture({ params, navigate }) {
             <span class="item__sub">${esc([m.code, m.location].filter(Boolean).join(' · ') || TYPES[m.type].label)}</span>
           </span>
           <span class="item__right">
-            <span class="item__value">${last ? esc(fmtAuto(last.value)) : '—'}</span>
+            <span class="item__value">${last ? esc(fmtLeitura(last.value)) : '—'}</span>
             <span class="item__meta">${last ? esc(fmtDate(last.readAt)) : 'sem leitura'}</span>
           </span>
           <span class="item__chev">${icon('chev', 18)}</span>
@@ -332,9 +335,10 @@ export default async function capture({ params, navigate }) {
         </div>
         <div class="keypad" id="pad">
           ${[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `<button class="key" data-k="${n}">${n}</button>`).join('')}
-          <button class="key key--fn" data-k="clear" aria-label="Limpar">C</button>
+          <button class="key key--fn" data-k="," aria-label="Vírgula decimal">,</button>
           <button class="key" data-k="0">0</button>
           <button class="key key--fn" data-k="del" aria-label="Apagar">⌫</button>
+          <button class="key key--fn key--wide" data-k="clear" aria-label="Limpar">C</button>
         </div>
       </section>
 
@@ -407,7 +411,9 @@ export default async function capture({ params, navigate }) {
       const k = b.dataset.k;
       if (k === 'del') digits = digits.slice(0, -1);
       else if (k === 'clear') digits = '';
-      else if (digits.length < 12) digits += k;
+      // uma vírgula só, e nunca começando por ela
+      else if (k === ',') { if (digits && !digits.includes(',')) digits += ','; }
+      else if (digits.length < 14) digits += k;
       if (navigator.vibrate) navigator.vibrate(8);
       paintValue();
     });
@@ -418,7 +424,10 @@ export default async function capture({ params, navigate }) {
     function onKey(e) {
       if (document.querySelector('.sheet-backdrop')) return;
       if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
-      if (/^[0-9]$/.test(e.key)) { digits += e.key; paintValue(); }
+      if (/^[0-9]$/.test(e.key)) { if (digits.length < 14) digits += e.key; paintValue(); }
+      else if (e.key === ',' || e.key === '.') {
+        if (digits && !digits.includes(',')) { digits += ','; paintValue(); }
+      }
       else if (e.key === 'Backspace') { digits = digits.slice(0, -1); paintValue(); }
     }
     node.querySelector('#date').onchange = (e) => { readAt = e.target.value || todayISO(); paintFeedback(); };

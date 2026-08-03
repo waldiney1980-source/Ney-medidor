@@ -23,6 +23,20 @@ export function fmt(n, decimals = 0) {
 }
 
 /** Decimais adaptativos: valores pequenos ganham precisão. */
+/**
+ * Valor de uma LEITURA de medidor.
+ *
+ * Diferente de fmtAuto, que escolhe a precisão pelo tamanho do número: numa
+ * leitura as casas decimais são os dígitos vermelhos do relógio, e cortá-las
+ * muda o que a pessoa vê em relação ao que está no visor. Inteiro sai inteiro;
+ * com fração, sempre duas casas.
+ */
+export function fmtLeitura(n) {
+  if (n === null || n === undefined || Number.isNaN(Number(n))) return '—';
+  const v = Number(n);
+  return Number.isInteger(v) ? nf(0, 0).format(v) : nf(2, 2).format(v);
+}
+
 export function fmtAuto(n) {
   if (n === null || n === undefined || Number.isNaN(n)) return '—';
   const a = Math.abs(n);

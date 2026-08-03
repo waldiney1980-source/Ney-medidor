@@ -1,7 +1,7 @@
 // Service worker — casca do app em cache para uso offline.
 // A API nunca é cacheada: dados vêm do IndexedDB local e sincronizam quando há rede.
 
-const VERSION = 'hidroluz-v28';
+const VERSION = 'hidroluz-v29';
 // Todos os módulos ficam na raiz. Caminhos errados aqui fazem o addAll inteiro
 // falhar, e aí só o index.html acaba em cache — cuidado ao mexer nesta lista.
 const SHELL = [

@@ -9,7 +9,7 @@ import { PDF, PAGE, PAGE_MARGIN, fit, textWidth } from './pdf.js';
 import { buildXlsx } from './xlsx.js';
 import { icon, toast, openSheet } from './ui.js';
 import {
-  esc, fmtAuto, fmtDate, fmtMoney, downloadFile, toCSV, todayISO,
+  esc, fmtAuto, fmtLeitura, fmtDate, fmtMoney, downloadFile, toCSV, todayISO,
   monthKey, monthLabel, daysBetween, addDaysISO,
 } from './utils.js';
 import { sugestoes, segmentLabel } from './gestao.js';
@@ -275,7 +275,7 @@ function desenharBlocos(doc, report, X, W, pageHeader) {
       const has = event && event.consumption !== null;
       const values = {
         data: fmtDate(reading.readAt),
-        leitura: fmtAuto(reading.value),
+        leitura: fmtLeitura(reading.value),
         dif: has ? fmtAuto(event.consumption / factor) : '—',
         consumo: has ? fmtAuto(event.consumption) : '—',
         dias: event ? String(event.days) : '—',

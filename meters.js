@@ -8,7 +8,7 @@ import { icon, toast, openSheet, confirmSheet, typeColor } from './ui.js';
 import { qrSVG } from './qr.js';
 import { openExportSheet } from './report.js';
 import { lerPlanilha, interpretar, aplicar, planilhaModelo } from './importar.js';
-import { el, esc, fmtAuto, fmtDate, parseNum, uid, todayISO, downloadFile } from './utils.js';
+import { el, esc, fmtAuto, fmtLeitura, fmtDate, parseNum, uid, todayISO, downloadFile } from './utils.js';
 import { SEGMENTS, segmentLabel, linksResumo } from './gestao.js';
 
 /* ---------------- formulário de medidor ---------------- */
@@ -656,7 +656,7 @@ export default async function meters({ navigate }) {
               <span class="item__sub">${esc([m.code, m.location].filter(Boolean).join(' · ') || TYPES[m.type].label)}</span>
             </span>
             <span class="item__right">
-              <span class="item__value">${last ? esc(fmtAuto(last.value)) : '—'}</span>
+              <span class="item__value">${last ? esc(fmtLeitura(last.value)) : '—'}</span>
               <span class="item__meta">${last ? esc(fmtDate(last.readAt)) : 'sem leitura'}</span>
             </span>
             <span class="item__chev">${icon('chev', 18)}</span>
