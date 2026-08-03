@@ -43,6 +43,40 @@ async function unzip(buf) {
   };
 }
 
+/**
+ * Descobre o arquivo da PRIMEIRA aba, seguindo a ordem real da planilha.
+ *
+ * `sheet1.xml` parece a escolha óbvia e engana: o Excel numera esses arquivos
+ * pela ordem de criação, não pela ordem das abas. Quem apagou ou reordenou abas
+ * acaba com a primeira aba morando em `sheet3.xml`, e o app leria a errada — ou
+ * uma vazia, e a mensagem seria "planilha sem linhas".
+ */
+async function primeiraAba(z) {
+  try {
+    const wb = await z.text('xl/workbook.xml');
+    const rels = await z.text('xl/_rels/workbook.xml.rels');
+    if (wb && rels) {
+      const doc = new DOMParser().parseFromString(wb, 'application/xml');
+      const sheet = doc.getElementsByTagName('sheet')[0];
+      const rid = sheet && (sheet.getAttribute('r:id') || sheet.getAttribute('id'));
+      if (rid) {
+        const rdoc = new DOMParser().parseFromString(rels, 'application/xml');
+        const rel = [...rdoc.getElementsByTagName('Relationship')].find((r) => r.getAttribute('Id') === rid);
+        const alvo = rel && rel.getAttribute('Target');
+        if (alvo) {
+          const caminho = alvo.replace(/^\/?(xl\/)?/, 'xl/');
+          if (z.names.includes(caminho)) return caminho;
+        }
+      }
+    }
+  } catch { /* planilha fora do padrão: cai para a busca por nome */ }
+
+  if (z.names.includes('xl/worksheets/sheet1.xml')) return 'xl/worksheets/sheet1.xml';
+  const qualquer = z.names.find((n) => /^xl\/worksheets\/.*\.xml$/.test(n));
+  if (!qualquer) throw new Error('Nenhuma aba encontrada na planilha.');
+  return qualquer;
+}
+
 const colunaDe = (ref) => {
   let c = 0;
   for (const ch of ref) { if (ch >= 'A' && ch <= 'Z') c = c * 26 + (ch.charCodeAt(0) - 64); else break; }
@@ -57,9 +91,7 @@ async function lerXlsx(buf) {
     const doc = new DOMParser().parseFromString(ssx, 'application/xml');
     shared = [...doc.getElementsByTagName('si')].map((si) => [...si.getElementsByTagName('t')].map((t) => t.textContent).join(''));
   }
-  let aba = 'xl/worksheets/sheet1.xml';
-  if (!z.names.includes(aba)) aba = z.names.find((n) => /^xl\/worksheets\/.*\.xml$/.test(n));
-  if (!aba) throw new Error('Nenhuma aba encontrada na planilha.');
+  const aba = await primeiraAba(z);
   const doc = new DOMParser().parseFromString(await z.text(aba), 'application/xml');
   const linhas = [];
   for (const rowEl of doc.getElementsByTagName('row')) {
@@ -108,13 +140,41 @@ function lerCsv(texto) {
   return linhas;
 }
 
-/** Lê o arquivo escolhido e devolve as linhas cruas da planilha. */
+/**
+ * Lê o arquivo escolhido e devolve as linhas cruas da planilha.
+ *
+ * Decide pelo CONTEÚDO, não pela extensão: arquivo que veio por WhatsApp, foi
+ * renomeado ou baixado de um portal chega com o nome mais improvável, e recusar
+ * pela extensão manda a pessoa embora sem motivo real.
+ */
 export async function lerPlanilha(file) {
-  const nome = String(file.name || '').toLowerCase();
-  if (nome.endsWith('.xlsx')) return lerXlsx(await file.arrayBuffer());
-  if (nome.endsWith('.csv') || nome.endsWith('.txt')) return lerCsv(await file.text());
-  if (nome.endsWith('.xls')) throw new Error('Formato .xls antigo não é lido. Abra no Excel e salve como .xlsx ou .csv.');
-  throw new Error('Envie um arquivo .xlsx ou .csv.');
+  const buf = await file.arrayBuffer();
+  const b = new Uint8Array(buf.slice(0, 8));
+
+  // "PK\x03\x04" — todo .xlsx é um zip
+  if (b[0] === 0x50 && b[1] === 0x4b && b[2] === 0x03 && b[3] === 0x04) {
+    if (typeof DecompressionStream !== 'function') {
+      throw new Error('Este navegador é antigo demais para abrir .xlsx. '
+        + 'Atualize o sistema, ou salve a planilha como .csv e envie de novo.');
+    }
+    return lerXlsx(buf);
+  }
+
+  // "D0 CF 11 E0" — Excel 97-2003, formato binário antigo
+  if (b[0] === 0xd0 && b[1] === 0xcf && b[2] === 0x11 && b[3] === 0xe0) {
+    throw new Error('Este arquivo é do Excel antigo (.xls). Abra no Excel ou no Numbers '
+      + 'e salve como .xlsx ou .csv.');
+  }
+
+  const texto = new TextDecoder('utf-8').decode(buf);
+  if (/^\s*</.test(texto)) {
+    throw new Error('Este arquivo parece uma página da internet, não uma planilha. '
+      + 'Baixe o arquivo pelo botão de exportar, em vez de salvar a página.');
+  }
+  if (texto.includes('\n') || texto.includes(';') || texto.includes(',')) {
+    return lerCsv(texto);
+  }
+  throw new Error('Não reconheci o formato do arquivo. Envie .xlsx ou .csv.');
 }
 
 /* ------------------------------------------------------------------ */

@@ -514,7 +514,10 @@ export function importSheet(onDone) {
       </div>
       <div class="field">
         <label for="imp-file">2 · Envie o arquivo</label>
-        <input class="input" type="file" id="imp-file" accept=".xlsx,.csv,.txt">
+        <!-- sem accept restrito de propósito: no iPhone ele esconde os arquivos
+             que não batem exatamente, e a pessoa nem consegue escolher o seu.
+             O formato é identificado pelo conteúdo depois de enviado. -->
+        <input class="input" type="file" id="imp-file">
         <span class="hint">Aceita <b>.xlsx</b> e <b>.csv</b>. No Excel: Arquivo → Salvar como → Pasta de Trabalho do Excel (.xlsx).</span>
       </div>
       <div id="imp-resumo"></div>
