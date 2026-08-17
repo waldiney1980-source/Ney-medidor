@@ -22,21 +22,39 @@ import {
 const OCR_LADO = 1280, OCR_QUALIDADE = 0.62;
 const GUARDA_LADO = 1000, GUARDA_QUALIDADE = 0.45;
 
+/** Casa um texto solto com o id, o código ou o nome de um medidor ativo. */
+function medidorPorTexto(bruto) {
+  const alvo = String(bruto || '').trim();
+  if (!alvo) return null;
+  const mesmoTexto = (a) => String(a || '').trim().toLowerCase() === alvo.toLowerCase();
+  return activeMeters().find((m) => m.id === alvo)
+    || meterByCode(alvo)
+    || activeMeters().find((m) => mesmoTexto(m.name))
+    || null;
+}
+
 /**
  * Resolve o que veio do QR ou do campo de código.
- * Aceita o link novo da etiqueta (…#/medidor/<id>), o id cru e o código do
+ * Aceita o link da etiqueta (…#/medidor/<algo>), o id cru e o código do
  * medidor — este último mantém válidas as etiquetas já impressas antes.
  */
 function medidorDoCodigo(bruto) {
   const txt = String(bruto || '').trim();
   if (!txt) return null;
+
+  /* A etiqueta grava `code || name || id` (ver linkDoMedidor), quase nunca o
+     id. Procurar só pelo id fazia toda etiqueta nova falhar de um jeito
+     traiçoeiro: o trecho certo era extraído do QR e descartado, e a busca por
+     código recebia a URL inteira em vez do código. A câmera lia, e mesmo assim
+     não ia para o medidor.
+     A ordem de busca é a mesma da rota #/medidor, para que ler pela câmera e
+     abrir o link no navegador nunca discordem. */
   const link = txt.match(/#\/medidor\/([^/?#\s]+)/);
   if (link) {
-    const id = decodeURIComponent(link[1]);
-    const achado = activeMeters().find((m) => m.id === id);
+    const achado = medidorPorTexto(decodeURIComponent(link[1]));
     if (achado) return achado;
   }
-  return meterByCode(txt) || activeMeters().find((m) => m.id === txt) || null;
+  return medidorPorTexto(txt);
 }
 
 export default async function capture({ params, navigate }) {
