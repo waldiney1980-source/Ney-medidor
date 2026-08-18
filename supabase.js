@@ -190,18 +190,48 @@ export async function push(payload) {
   return { ok: true };
 }
 
+/* Abaixo do teto de 1000 linhas por resposta do PostgREST. */
+const PAGINA = 900;
+
+/**
+ * Baixa uma tabela inteira, em páginas.
+ *
+ * O PostgREST devolve no máximo 1000 linhas e **ignora em silêncio** um limit
+ * maior. Pedir 10000 e receber 1000 parecia sucesso: com 1359 medidores, todo
+ * aparelho que sincronizava do zero levava só os mais antigos e ficava sem
+ * nenhum medidor de água — e, como a marca de "até onde já baixei" avançava
+ * assim mesmo, o resto nunca mais era buscado. O app mostrava "Em dia" com o
+ * cadastro pela metade, e ler o QR de um medidor ausente não levava a lugar
+ * nenhum.
+ *
+ * A ordenação inclui o id para ser determinística: com updated_at repetido,
+ * duas páginas poderiam repetir uma linha e pular outra.
+ */
+async function puxarTudo(tabela, since) {
+  const linhas = [];
+  for (;;) {
+    const q = `updated_at=gt.${Number(since) || 0}&select=*`
+      + `&order=updated_at.asc,id.asc&limit=${PAGINA}&offset=${linhas.length}`;
+    const lote = (await request(`/rest/v1/${tabela}?${q}`)) || [];
+    linhas.push(...lote);
+    /* Página incompleta significa fim: é o único sinal confiável, porque o
+       servidor não diz quantas linhas ficaram para trás. */
+    if (lote.length < PAGINA) return linhas;
+    if (linhas.length >= 100000) return linhas;   // trava contra laço infinito
+  }
+}
+
 export async function pull(since = 0) {
-  const q = `updated_at=gt.${Number(since) || 0}&select=*&order=updated_at.asc&limit=10000`;
   const [sites, meters, readings] = await Promise.all([
-    request(`/rest/v1/unidades?${q}`),
-    request(`/rest/v1/medidores?${q}`),
-    request(`/rest/v1/leituras?${q}`),
+    puxarTudo('unidades', since),
+    puxarTudo('medidores', since),
+    puxarTudo('leituras', since),
   ]);
   return {
     now: Date.now(),
-    sites: (sites || []).map(fromRowSite),
-    meters: (meters || []).map(fromRowMeter),
-    readings: (readings || []).map(fromRowReading),
+    sites: sites.map(fromRowSite),
+    meters: meters.map(fromRowMeter),
+    readings: readings.map(fromRowReading),
   };
 }
 
