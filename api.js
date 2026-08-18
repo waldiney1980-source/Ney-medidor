@@ -13,6 +13,17 @@ let running = null;
 /** Folga da marca de sincronização, para absorver diferença de relógio. */
 const SOBREPOSICAO = 2 * 60 * 1000;
 
+/**
+ * Marca d'água das correções de sincronização.
+ *
+ * Aparelho que sincronizou antes da paginação parou com a marca adiantada e o
+ * cadastro incompleto — faltavam medidores que ele nunca mais iria buscar,
+ * porque "já passei desse ponto". Corrigir o download não bastaria: é preciso
+ * mandá-lo varrer tudo de novo, uma única vez. Subir este número faz isso em
+ * cada aparelho, na primeira sincronização depois da atualização.
+ */
+const EPOCA_SYNC = 1;
+
 function setStatus(status, message = '') {
   state.sync.status = status;
   state.sync.message = message;
@@ -69,7 +80,13 @@ export async function sync({ silent = false } = {}) {
         await markClean(dirty);
       }
 
-      const remote = await sb.pull(state.settings.lastSyncAt || 0);
+      /* Varredura completa quando este aparelho ainda não passou pela época
+         atual: é o que devolve o que ficou para trás na sincronização
+         truncada. Custa uma passagem inteira, uma vez só. */
+      const varrerTudo = (state.settings.syncEpoca || 0) < EPOCA_SYNC;
+      const desde = varrerTudo ? 0 : (state.settings.lastSyncAt || 0);
+
+      const remote = await sb.pull(desde);
       const applied = await applyRemote(remote);
       /* A marca de "até onde já baixei" recua um pouco de propósito. Ela vem do
          relógio deste aparelho, e os registros trazem o relógio de quem gravou:
@@ -77,7 +94,7 @@ export async function sync({ silent = false } = {}) {
          numa fresta e nunca mais ser buscado. Com a sobreposição, o pior que
          acontece é rebaixar registros já conhecidos — o que é inofensivo. */
       const marca = (remote.now || Date.now()) - SOBREPOSICAO;
-      await saveSettings({ lastSyncAt: Math.max(0, marca) });
+      await saveSettings({ lastSyncAt: Math.max(0, marca), syncEpoca: EPOCA_SYNC });
 
       setStatus('ok', 'Sincronizado');
       return { pushed: hasLocal ? 1 : 0, applied };
