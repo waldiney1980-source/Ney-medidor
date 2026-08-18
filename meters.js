@@ -629,9 +629,23 @@ export default async function meters({ navigate }) {
       .sort((a, b) => String(a.name || a.code).localeCompare(String(b.name || b.code), 'pt-BR'));
 
     if (!list.length) {
+      /* Dizer "Nenhum medidor cadastrado" havendo centenas manda investigar o
+         lado errado. Foi o que esta tela mostrou no filtro Água de um aparelho
+         com 316 medidores de energia e nenhum de água: o cadastro tinha vindo
+         pela metade, e a mensagem sugeria que faltava cadastrar. */
+      const total = activeMeters().length;
+      const nomeTipo = type === 'agua' ? 'de água' : 'de energia';
+      const semNada = !total;
+      const titulo = semNada ? 'Nenhum medidor cadastrado'
+        : term ? 'Nada encontrado'
+        : `Nenhum medidor ${nomeTipo} neste aparelho`;
+      const texto = semNada
+        ? 'Cadastre os relógios de energia e água que serão lidos em campo.'
+        : term ? 'Ajuste a busca ou cadastre um novo medidor.'
+        : `Há ${total} medidor(es) aqui, nenhum ${nomeTipo}. Se deveria haver, toque em Sincronizar no alto da tela.`;
       root.appendChild(el(`<section class="card"><div class="card__body"><div class="empty">
-        ${icon('gauge', 30)}<b>${term ? 'Nada encontrado' : 'Nenhum medidor cadastrado'}</b>
-        <p>${term ? 'Ajuste a busca ou cadastre um novo medidor.' : 'Cadastre os relógios de energia e água que serão lidos em campo.'}</p>
+        ${icon('gauge', 30)}<b>${esc(titulo)}</b>
+        <p>${esc(texto)}</p>
         <button class="btn btn--primary btn--sm" id="add2">Cadastrar medidor</button>
       </div></div></section>`));
       root.querySelector('#add2').onclick = () => meterFormSheet(null, paint);
