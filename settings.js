@@ -7,9 +7,31 @@ import { icon, toast, openSheet, confirmSheet } from './ui.js';
 import { el, esc, downloadFile, relTime, fmt } from './utils.js';
 import { installPrompt, triggerInstall, applyTheme } from './app.js';
 
+/**
+ * Versão da casca em cache, perguntada ao service worker.
+ *
+ * Responde "este aparelho já pegou a atualização?" sem depender de deduzir
+ * pela mensagem de erro. Devolve null quando não há service worker no
+ * comando — primeira visita antes de ele assumir, app aberto em file:, ou
+ * uma versão antiga que ainda não sabe responder — e aí a tela mostra um
+ * traço em vez de inventar um número.
+ */
+function versaoDoApp(prazo = 1500) {
+  return new Promise((resolve) => {
+    const sw = navigator.serviceWorker && navigator.serviceWorker.controller;
+    if (!sw) { resolve(null); return; }
+    const canal = new MessageChannel();
+    const desistir = setTimeout(() => resolve(null), prazo);
+    canal.port1.onmessage = (e) => { clearTimeout(desistir); resolve(e.data || null); };
+    try { sw.postMessage({ tipo: 'versao' }, [canal.port2]); }
+    catch { clearTimeout(desistir); resolve(null); }
+  });
+}
+
 export default async function settings() {
   const root = el('<div class="stack"></div>');
   const est = await storageEstimate();
+  let versao = null;
 
   const paint = () => {
     root.innerHTML = '';
@@ -173,6 +195,7 @@ export default async function settings() {
       <div class="card__head"><div class="grow"><h2>Aplicativo</h2><p>${installed ? 'Instalado neste aparelho.' : 'Instale para usar em tela cheia e offline.'}</p></div></div>
       <div class="card__body stack">
         ${!installed ? `<button class="btn btn--block" id="install">${icon('download', 18)} Instalar no aparelho</button>` : ''}
+        <div class="preview-line"><span>Versão</span><b id="versao-app">${esc(versao ? versao.replace(/^hidroluz-/, '') : '—')}</b></div>
         <div class="preview-line"><span>Medidores</span><b>${activeMeters().length}</b></div>
         <div class="preview-line"><span>Leituras</span><b>${state.readings.filter((r) => !r.deleted).length}</b></div>
         ${est ? `<div class="preview-line"><span>Espaço usado</span><b>${fmt((est.usage || 0) / 1048576, 1)} MB</b></div>` : ''}
@@ -313,5 +336,17 @@ export default async function settings() {
   };
 
   paint();
+
+  /* A versão chega depois, sem segurar a tela. Um service worker anterior ao
+     v35 não sabe responder e só devolveria no fim do prazo — esperar por ele
+     deixaria os Ajustes travados por um segundo e meio justamente em quem
+     ainda não atualizou. A linha nasce com um traço e se completa sozinha. */
+  versaoDoApp().then((v) => {
+    if (!v) return;
+    versao = v;
+    const alvo = root.querySelector('#versao-app');
+    if (alvo) alvo.textContent = v.replace(/^hidroluz-/, '');
+  });
+
   return { el: root, title: 'Ajustes', sub: 'Configurações do aplicativo' };
 }
