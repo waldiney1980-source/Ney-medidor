@@ -20,6 +20,7 @@ export const DEFAULT_SETTINGS = {
   alertPct: 40,
   ocrEnabled: true,
   lastSyncAt: 0,
+  syncEpoca: 0,
   onboarded: false,
 };
 
