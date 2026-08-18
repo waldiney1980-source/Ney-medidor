@@ -1,7 +1,7 @@
 // Service worker — casca do app em cache para uso offline.
 // A API nunca é cacheada: dados vêm do IndexedDB local e sincronizam quando há rede.
 
-const VERSION = 'hidroluz-v34';
+const VERSION = 'hidroluz-v36';
 // Todos os módulos ficam na raiz. Caminhos errados aqui fazem o addAll inteiro
 // falhar, e aí só o index.html acaba em cache — cuidado ao mexer nesta lista.
 const SHELL = [
@@ -43,6 +43,16 @@ self.addEventListener('install', (event) => {
       .then((cache) => cache.addAll(SHELL).catch(() => cache.addAll(['./', './index.html'])))
       .then(() => self.skipWaiting())
   );
+});
+
+/* A tela de Ajustes pergunta a versão por aqui. Sem isso não há como conferir,
+   no próprio celular, se a atualização entrou: quando uma correção sai, a
+   dúvida "este aparelho já pegou?" só se resolvia deduzindo pela mensagem de
+   erro. O service worker é quem sabe, porque é dele a casca em cache. */
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.tipo === 'versao' && event.ports[0]) {
+    event.ports[0].postMessage(VERSION);
+  }
 });
 
 self.addEventListener('activate', (event) => {
